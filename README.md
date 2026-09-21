@@ -19,9 +19,8 @@ prompts            # use the current directory
 prompts ~/work/x   # use another directory
 ```
 
-The target directory must contain a `.prompts` folder. An empty directory
-gets one created automatically. A non-empty directory without `.prompts`
-exits with `Not a prompts directory`.
+State lives in a `.prompts` folder in the target directory. When there is
+none, `prompts` asks whether to create it.
 
 Everything lives in `.prompts` as plain text, so commit it alongside your
 project. See [docs/file-format.md](docs/file-format.md).

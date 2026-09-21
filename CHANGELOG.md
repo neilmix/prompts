@@ -16,5 +16,7 @@
   editor runs through `sh -c`, minimum terminal size guard.
 - Button shortcut letters are bare keys (n, o, d, ...) as well as Ctrl+letter.
   Typing in the Tags view no longer starts Add; press `a`.
+- A directory without `.prompts` now prompts to configure it instead of
+  auto-creating (empty dir) or refusing (non-empty dir).
 - Fix: the CLI did nothing when started through a symlinked bin (`npm link`).
 - Done button shows `✓ Done` instead of `[x] Done`; Done is available in Open.

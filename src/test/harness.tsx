@@ -29,7 +29,7 @@ export async function mount(
     ...Object.fromEntries(Object.entries(files).map(([k, v]) => [`/w/.prompts/${k}`, v])),
   });
   const opened = openStore(fs, '/w');
-  if (!opened.ok) throw new Error(opened.errors.join('\n'));
+  if (!opened.ok) throw new Error('errors' in opened ? opened.errors.join('\n') : 'missing');
   const edits: string[] = [];
   const copies: string[] = [];
   let exitValue: ExitResult | undefined;

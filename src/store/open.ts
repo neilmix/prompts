@@ -11,23 +11,18 @@ export interface Store {
   sort: string[];
 }
 
+export type LoadResult = { ok: true; store: Store } | { ok: false; errors: string[] };
+
 export type OpenResult =
-  | { ok: true; store: Store }
-  | { ok: false; errors: string[] };
+  | LoadResult
+  /** `dir` exists but has no `.prompts`; the caller may offer to create it. */
+  | { ok: false; missing: true; paths: Paths };
 
-export const NOT_PROMPTS_DIR = 'Not a prompts directory';
-
-const IGNORED_ENTRIES = new Set(['.git']);
-
-/** Open (or initialize, when `dir` is empty) the store at `dir`. */
+/** Open the store at `dir`. Does not create anything. */
 export function openStore(fs: Fs, dir: string): OpenResult {
   if (!fs.isDir(dir)) return { ok: false, errors: [`${dir}: not a directory`] };
   const paths = pathsFor(dir);
-  if (!fs.exists(paths.root)) {
-    const entries = fs.readdir(dir).filter((e) => !IGNORED_ENTRIES.has(e));
-    if (entries.length > 0) return { ok: false, errors: [NOT_PROMPTS_DIR] };
-    initStore(fs, paths);
-  }
+  if (!fs.exists(paths.root)) return { ok: false, missing: true, paths };
   return loadStore(fs, paths);
 }
 
@@ -38,7 +33,7 @@ export function initStore(fs: Fs, paths: Paths): void {
   fs.writeFile(paths.sort, '');
 }
 
-export function loadStore(fs: Fs, paths: Paths): OpenResult {
+export function loadStore(fs: Fs, paths: Paths): LoadResult {
   const errors: string[] = [];
   for (const [p, label] of [
     [paths.index, 'index'],

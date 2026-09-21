@@ -14,13 +14,14 @@ describe('cli startup', () => {
   });
   afterEach(() => fs.rmSync(ROOT, { recursive: true, force: true }));
 
-  it('refuses a non-empty directory without .prompts', () => {
+  it('needs a terminal to offer setup for a directory without .prompts', () => {
     const dir = path.join(ROOT, 'busy');
     fs.mkdirSync(dir);
     fs.writeFileSync(path.join(dir, 'x.txt'), '');
     const r = run(dir);
     expect(r.status).toBe(1);
-    expect(r.stderr).toBe('Not a prompts directory\n');
+    expect(r.stderr).toBe('prompts needs an interactive terminal\n');
+    expect(fs.existsSync(path.join(dir, '.prompts'))).toBe(false);
   });
 
   it('runs when started through a symlink, as npm link does', () => {

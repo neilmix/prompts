@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFs } from './fs.js';
-import { NOT_PROMPTS_DIR, openStore } from './open.js';
+import { initStore, openStore } from './open.js';
 import { pathsFor } from './paths.js';
 import { createPrompt, deletePrompt, ensureText, loadPrompts, readText, savePrompt } from './prompts.js';
 import { loadSettings, resolveEditor, saveSettings } from './settings.js';
@@ -28,24 +28,21 @@ describe('MemoryFs', () => {
 });
 
 describe('openStore', () => {
-  it('initializes an empty directory', () => {
-    const fs = new MemoryFs({ '/w': null });
+  it('reports a missing .prompts without creating it', () => {
+    const fs = new MemoryFs({ '/w/readme.md': 'x' });
     const r = openStore(fs, '/w');
-    expect(r.ok).toBe(true);
+    expect(r).toMatchObject({ ok: false, missing: true });
+    expect(fs.exists('/w/.prompts')).toBe(false);
+  });
+
+  it('initStore creates the layout, after which openStore succeeds', () => {
+    const fs = new MemoryFs({ '/w': null });
+    initStore(fs, P);
     expect(fs.isDir('/w/.prompts/index')).toBe(true);
     expect(fs.isDir('/w/.prompts/text')).toBe(true);
     expect(fs.readFile('/w/.prompts/settings.txt')).toBe('');
     expect(fs.readFile('/w/.prompts/sort.txt')).toBe('');
-  });
-
-  it('treats a directory with only .git as empty', () => {
-    const fs = new MemoryFs({ '/w/.git/HEAD': 'ref' });
     expect(openStore(fs, '/w').ok).toBe(true);
-  });
-
-  it('refuses a non-empty directory without .prompts', () => {
-    const fs = new MemoryFs({ '/w/readme.md': 'x' });
-    expect(openStore(fs, '/w')).toEqual({ ok: false, errors: [NOT_PROMPTS_DIR] });
   });
 
   it('refuses a missing directory', () => {
@@ -71,7 +68,7 @@ describe('openStore', () => {
       'sort.txt': '20260101-000000\n',
     });
     const r = openStore(fs, '/w');
-    if (!r.ok) throw new Error(r.errors.join());
+    if (!r.ok) throw new Error('errors' in r ? r.errors.join() : 'missing');
     expect(r.store.settings).toEqual({ editor: 'nano' });
     expect(r.store.prompts.get('20260101-000000')).toEqual({
       id: '20260101-000000',

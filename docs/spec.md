@@ -11,17 +11,18 @@ Terms: a **prompt** is one item, made of a title, tags, and a text body. The
 
 1. Resolve the target directory: the first CLI argument, else the current
    working directory. A missing directory is an error.
-2. If `<dir>/.prompts` exists, load and validate it.
-3. Otherwise, if `<dir>` has no entries other than `.git`, create
-   `.prompts/` with `settings.txt`, `sort.txt`, `index/`, and `text/`.
-4. Otherwise print `Not a prompts directory` to stderr and exit with
-   status 1.
-5. Validation failures (see file-format.md, "Validation") print one line per
-   problem to stderr and exit with status 1. Nothing is rendered.
-6. Stdin and stdout must both be terminals. Otherwise print
+2. If `<dir>/.prompts` exists, load and validate it. Validation failures
+   (see file-format.md, "Validation") print one line per problem to stderr
+   and exit with status 1. Nothing is rendered.
+3. Stdin and stdout must both be terminals from here on. Otherwise print
    `prompts needs an interactive terminal` to stderr and exit with status 1.
-7. The app runs in the terminal's alternate screen.
-8. If the terminal is smaller than 40 columns by 10 rows, the whole screen
+4. If `<dir>/.prompts` does not exist, show the directory and ask
+   `This directory is not configured for prompts. Configure now? (y/n)` in
+   the normal screen. `y` creates `.prompts/` with `settings.txt`,
+   `sort.txt`, `index/`, and `text/`, then continues. `n`, Escape, or ^C
+   exits with status 0 and creates nothing.
+5. The app runs in the terminal's alternate screen.
+6. If the terminal is smaller than 40 columns by 10 rows, the whole screen
    shows `terminal too small` and only ^C and ^Q work.
 
 ## 2. Screen layout
@@ -241,7 +242,6 @@ green. The message disappears on the next key press.
 
 Review these; they were chosen for simplicity.
 
-- Startup treats a directory containing only `.git` as empty.
 - Up/Down always act on the body even when a button has focus.
 - The body always has focus when a view opens.
 - Selected row colors: white on blue when the body has focus, bold otherwise.
