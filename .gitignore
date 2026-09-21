@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # scratch
 tmp/
+
+node_modules/
+dist/
