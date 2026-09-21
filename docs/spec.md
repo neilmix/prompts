@@ -17,6 +17,8 @@ Terms: a **prompt** is one item, made of a title, tags, and a text body. The
    status 1.
 5. Validation failures (see file-format.md, "Validation") print one line per
    problem to stderr and exit with status 1. Nothing is rendered.
+6. Stdin and stdout must both be terminals. Otherwise print
+   `prompts needs an interactive terminal` to stderr and exit with status 1.
 
 ## 2. Screen layout
 

@@ -1,13 +1,13 @@
 import { Box } from 'ink';
 import { useState } from 'react';
 import { SETTING_KEYS, type SettingKey } from '../../store/settings.js';
-import { ScrollList } from '../controls/ScrollList.jsx';
-import { TextInput, TEXT_INPUT_HEIGHT } from '../controls/TextInput.jsx';
+import { ScrollList } from '../controls/ScrollList.js';
+import { TextInput, TEXT_INPUT_HEIGHT } from '../controls/TextInput.js';
 import type { ViewProps } from '../context.js';
 import { useButtons } from '../hooks/useButtons.js';
 import { useKeyActions } from '../hooks/useKeyActions.js';
-import { CommandPane, COMMAND_PANE_HEIGHT } from '../panes/CommandPane.jsx';
-import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.jsx';
+import { CommandPane, COMMAND_PANE_HEIGHT } from '../panes/CommandPane.js';
+import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
 
 export function SettingsModal({ state, dispatch, actions, size }: ViewProps) {
   const [selected, setSelected] = useState(0);

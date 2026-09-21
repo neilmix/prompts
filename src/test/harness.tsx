@@ -1,7 +1,7 @@
 import { render } from 'ink-testing-library';
 import { MemoryFs } from '../store/fs.js';
 import { openStore, type Store } from '../store/open.js';
-import { App, type AppProps } from '../ui/App.jsx';
+import { App, type AppProps } from '../ui/App.js';
 
 export interface Harness {
   fs: MemoryFs;

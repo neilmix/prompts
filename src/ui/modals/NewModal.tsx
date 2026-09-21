@@ -1,7 +1,7 @@
 import { Box } from 'ink';
-import { TextInput } from '../controls/TextInput.jsx';
+import { TextInput } from '../controls/TextInput.js';
 import type { ViewProps } from '../context.js';
-import { TitleBar } from '../panes/TitleBar.jsx';
+import { TitleBar } from '../panes/TitleBar.js';
 
 export function NewModal({ dispatch, actions, size }: ViewProps) {
   return (

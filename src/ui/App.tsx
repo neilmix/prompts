@@ -10,12 +10,12 @@ import { resolveEditor, saveSettings } from '../store/settings.js';
 import { moveInOrder, saveSort } from '../store/sort.js';
 import type { Actions } from './context.js';
 import { useSize, type Size } from './hooks/useSize.js';
-import { ListView } from './ListView.jsx';
-import { FilterModal } from './modals/FilterModal.jsx';
-import { NewModal } from './modals/NewModal.jsx';
-import { OpenModal } from './modals/OpenModal.jsx';
-import { SettingsModal } from './modals/SettingsModal.jsx';
-import { TagModal } from './modals/TagModal.jsx';
+import { ListView } from './ListView.js';
+import { FilterModal } from './modals/FilterModal.js';
+import { NewModal } from './modals/NewModal.js';
+import { OpenModal } from './modals/OpenModal.js';
+import { SettingsModal } from './modals/SettingsModal.js';
+import { TagModal } from './modals/TagModal.js';
 
 export interface AppProps {
   fs: Fs;

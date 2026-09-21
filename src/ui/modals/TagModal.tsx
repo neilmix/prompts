@@ -1,13 +1,13 @@
 import { Box } from 'ink';
 import { useState } from 'react';
 import { allTags, canonicalTag, completeTag, tagEq, validateTag } from '../../model/select.js';
-import { ScrollList } from '../controls/ScrollList.jsx';
-import { TextInput, TEXT_INPUT_HEIGHT } from '../controls/TextInput.jsx';
+import { ScrollList } from '../controls/ScrollList.js';
+import { TextInput, TEXT_INPUT_HEIGHT } from '../controls/TextInput.js';
 import type { ViewProps } from '../context.js';
 import { useButtons } from '../hooks/useButtons.js';
 import { useKeyActions } from '../hooks/useKeyActions.js';
-import { CommandPane, COMMAND_PANE_HEIGHT } from '../panes/CommandPane.jsx';
-import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.jsx';
+import { CommandPane, COMMAND_PANE_HEIGHT } from '../panes/CommandPane.js';
+import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
 
 export function TagModal({ state, dispatch, actions, size, id }: ViewProps & { id: string }) {
   const prompt = state.prompts.get(id)!;

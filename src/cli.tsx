@@ -4,13 +4,17 @@ import * as path from 'node:path';
 import { runEditor } from './editor.js';
 import { realFs } from './store/fs.js';
 import { openStore } from './store/open.js';
-import { App } from './ui/App.jsx';
+import { App } from './ui/App.js';
 
 export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   const dir = path.resolve(argv[0] ?? process.cwd());
   const result = openStore(realFs, dir);
   if (!result.ok) {
     process.stderr.write(result.errors.map((e) => `${e}\n`).join(''));
+    return 1;
+  }
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    process.stderr.write('prompts needs an interactive terminal\n');
     return 1;
   }
   const instance = render(<App fs={realFs} store={result.store} env={env} runEditor={runEditor} />, {

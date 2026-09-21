@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mount, plain, type Harness } from '../test/harness.jsx';
+import { mount, plain, type Harness } from '../test/harness.js';
 import { KEYS } from '../test/keys.js';
 
 const A = '20260101-000001';

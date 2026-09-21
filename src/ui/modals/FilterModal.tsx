@@ -1,12 +1,12 @@
 import { Box } from 'ink';
 import { useState } from 'react';
 import { allTags, tagEq } from '../../model/select.js';
-import { ScrollList } from '../controls/ScrollList.jsx';
+import { ScrollList } from '../controls/ScrollList.js';
 import type { ViewProps } from '../context.js';
 import { useButtons } from '../hooks/useButtons.js';
 import { useKeyActions } from '../hooks/useKeyActions.js';
-import { CommandPane, COMMAND_PANE_HEIGHT } from '../panes/CommandPane.jsx';
-import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.jsx';
+import { CommandPane, COMMAND_PANE_HEIGHT } from '../panes/CommandPane.js';
+import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
 
 export function FilterModal({ state, dispatch, size }: ViewProps) {
   const tags = allTags(state.prompts.values());

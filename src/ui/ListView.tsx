@@ -1,11 +1,11 @@
 import { Box } from 'ink';
 import { visibleIds } from '../model/select.js';
-import { ScrollList } from './controls/ScrollList.jsx';
+import { ScrollList } from './controls/ScrollList.js';
 import { selectedPrompt, type ViewProps } from './context.js';
 import { useButtons } from './hooks/useButtons.js';
 import { useKeyActions } from './hooks/useKeyActions.js';
-import { CommandPane, COMMAND_PANE_HEIGHT } from './panes/CommandPane.jsx';
-import { TagPane, tagPaneHeight } from './panes/TagPane.jsx';
+import { CommandPane, COMMAND_PANE_HEIGHT } from './panes/CommandPane.js';
+import { TagPane, tagPaneHeight } from './panes/TagPane.js';
 
 export function ListView({ state, dispatch, actions, size }: ViewProps) {
   const ids = visibleIds(state);
