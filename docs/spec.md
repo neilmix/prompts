@@ -114,8 +114,8 @@ view is shown. Enter with an empty title does nothing. Escape cancels.
 **Open (o)**: see the Open view.
 
 **Done (d)**: toggles the selected prompt's done flag, in memory only. The
-button reads `[ ] Done` or `[x] Done` for the selected prompt. Nothing is
-deleted until Quit.
+button reads `Done`, or `✓ Done` when the selected prompt is done. Nothing
+is deleted until Quit.
 
 **Tag (t)**, **Filter (f)**, **Settings (s)**: see those views.
 
@@ -144,8 +144,8 @@ filter (both must match). Search is not persisted.
 - The separator below the body is labeled with the text file's relative
   path, e.g. `─ .prompts/text/20260921-143005.txt ─`.
 - Tag pane shows the prompt's tags.
-- Buttons: **Edit, Title, Copy, Back**. Shortcuts e, t, y (Copy's `y` is
-  underlined), b.
+- Buttons: **Edit, Title, Copy, Done, Back**. Shortcuts e, t, y (Copy's `y`
+  is underlined), d, b.
 - Primary action: Edit.
 - **Edit**: releases the terminal, runs the editor (section 9) on the text
   file, then restores the screen and reloads the text. The editor's exit
@@ -153,6 +153,7 @@ filter (both must match). Search is not persisted.
 - **Title**: `Title` entry pre-filled with the current title. Enter with a
   non-empty title saves it to the index file. Empty does nothing. Escape
   cancels.
+- **Done**: as in the list view, for this prompt.
 - **Copy**: copies the text to the system clipboard using the first
   available of `pbcopy`, `wl-copy`, `xclip -selection clipboard`,
   `xsel --clipboard --input`. Shows the status message `Copied` or an

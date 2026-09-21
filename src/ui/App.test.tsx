@@ -45,7 +45,7 @@ describe('list view', () => {
     expect(lines().slice(0, 3)).toEqual(['▸ Gamma', '  Beta', '  Alpha']);
     expect(focusedRow()).toBe('Gamma');
     expect(focusedButton()).toBeNull();
-    expect(line(ROW.buttons)).toBe('New  Open  [ ] Done  Tag  Filter  Settin');
+    expect(line(ROW.buttons)).toBe('New  Open  Done  Tag  Filter  Settings');
   });
 
   it('honors sort.txt with unlisted items first', async () => {
@@ -108,7 +108,7 @@ describe('focus', () => {
     expect(focusedRow()).toBeNull();
     expect(line(0)).toBe('▸ Gamma');
     await h.press(KEYS.right, KEYS.right);
-    expect(focusedButton()).toBe('[ ] Done');
+    expect(focusedButton()).toBe('Done');
     await h.press(KEYS.left);
     expect(focusedButton()).toBe('Open');
     await h.press(KEYS.left, KEYS.left, KEYS.left);
@@ -184,7 +184,7 @@ describe('Open', () => {
     expect(lines().slice(1, 3)).toEqual(['line one', 'line two']);
     expect(line(8)).toBe(`─ .prompts/text/${B}.txt ────`);
     expect(line(9)).toBe('[work]');
-    expect(line(11)).toBe('Edit  Title  Copy  Back');
+    expect(line(11)).toBe('Edit  Title  Copy  Done  Back');
   });
 
   it('scrolls with arrows and vim keys and shows a range counter', async () => {
@@ -247,7 +247,7 @@ describe('Open', () => {
     h = await mount(THREE);
     await h.press(KEYS.ctrl('o'), KEYS.ctrl('t'), 'x', KEYS.escape);
     expect(line(0)).toMatch(/^ Open › Gamma/);
-    expect(line(ROW.buttons)).toBe('Edit  Title  Copy  Back');
+    expect(line(ROW.buttons)).toBe('Edit  Title  Copy  Done  Back');
   });
 });
 
@@ -256,12 +256,21 @@ describe('Done and Quit', () => {
     h = await mount(THREE);
     await h.press('d');
     expect(line(0)).toBe('▸ ✓ Gamma');
-    expect(line(ROW.buttons)).toContain('[x] Done');
+    expect(line(ROW.buttons)).toContain('✓ Done');
     await h.press(KEYS.ctrl('d'));
     expect(line(0)).toBe('▸ Gamma');
-    expect(line(ROW.buttons)).toContain('[ ] Done');
+    expect(line(ROW.buttons)).not.toContain('✓');
     await h.press(KEYS.ctrl('d'), KEYS.down);
-    expect(line(ROW.buttons)).toContain('[ ] Done');
+    expect(line(ROW.buttons)).not.toContain('✓');
+  });
+
+  it('toggles done from the Open view', async () => {
+    h = await mount(THREE);
+    await h.press('o', 'd');
+    expect(line(ROW.buttons)).toBe('Edit  Title  Copy  ✓ Done  Back');
+    await h.press('b');
+    expect(line(0)).toBe('▸ ✓ Gamma');
+    expect(line(ROW.buttons)).toContain('✓ Done');
   });
 
   it('quits immediately with nothing done, via ^Q, q, or ^C', async () => {
@@ -437,11 +446,11 @@ describe('mouse', () => {
     expect(focusedRow()).toBe('Beta');
     await h.press(mouse(65, 0, 0));
     expect(focusedRow()).toBe('Alpha');
-    await h.press(mouse(0, 14, 11));
-    expect(line(ROW.buttons)).toContain('[x] Done');
+    await h.press(mouse(0, 12, 11));
+    expect(line(ROW.buttons)).toContain('✓ Done');
     await h.press(mouse(0, 5, 11));
     expect(line(0)).toMatch(/^ Open › Alpha/);
-    await h.press(mouse(0, 19, 11));
+    await h.press(mouse(0, 27, 11));
     expect(line(2)).toBe('▸ ✓ Alpha');
   });
 });

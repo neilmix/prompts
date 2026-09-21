@@ -20,6 +20,8 @@ export function listHeader(state: { search: string; filter: string[] }, shown: n
   return parts.join(' · ');
 }
 
+export const doneLabel = (done: boolean): string => (done ? '✓ Done' : 'Done');
+
 export function ListView({ state, dispatch, actions, size, overlay }: ViewProps) {
   const [searching, setSearching] = useState(false);
   const topRef = useRef(0);
@@ -45,7 +47,7 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
     [
       { label: 'New', shortcut: 'n', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'new' } }) },
       { label: 'Open', shortcut: 'o', onActivate: open },
-      { label: `[${selected && state.done.has(selected.id) ? 'x' : ' '}] Done`, shortcut: 'd', onActivate: withSelected((id) => dispatch({ type: 'toggleDone', id })) },
+      { label: doneLabel(selected !== null && state.done.has(selected.id)), shortcut: 'd', onActivate: withSelected((id) => dispatch({ type: 'toggleDone', id })) },
       { label: 'Tag', shortcut: 't', onActivate: withSelected((id) => dispatch({ type: 'openModal', modal: { kind: 'tag', id } })) },
       { label: 'Filter', shortcut: 'f', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'filter' } }) },
       { label: 'Settings', shortcut: 's', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'settings' } }) },

@@ -16,3 +16,4 @@
   editor runs through `sh -c`, minimum terminal size guard.
 - Button shortcut letters are bare keys (n, o, d, ...) as well as Ctrl+letter.
   Typing in the Tags view no longer starts Add; press `a`.
+- Done button shows `✓ Done` instead of `[x] Done`; Done is available in Open.

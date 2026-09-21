@@ -8,6 +8,7 @@ import { vimAction } from '../keys.js';
 import { CommandPane, commandPaneHeight } from '../panes/CommandPane.js';
 import { TagPane, tagPaneLines } from '../panes/TagPane.js';
 import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
+import { doneLabel } from '../ListView.js';
 import { rangeLabel, wrapText } from '../text.js';
 
 export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewProps & { id: string }) {
@@ -34,6 +35,7 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
       { label: 'Edit', shortcut: 'e', onActivate: edit },
       { label: 'Title', shortcut: 't', onActivate: () => setEditingTitle(true) },
       { label: 'Copy', shortcut: 'y', onActivate: () => void actions.copy(id) },
+      { label: doneLabel(state.done.has(id)), shortcut: 'd', onActivate: () => dispatch({ type: 'toggleDone', id }) },
       { label: 'Back', shortcut: 'b', onActivate: back },
     ],
     edit,

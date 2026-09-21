@@ -36,7 +36,7 @@ project. See [docs/file-format.md](docs/file-format.md).
 ├ tag pane ──────────────────────────────┤
 │ [backend] [auth]                       │
 ├ command pane ──────────────────────────┤
-│ New  Open  [ ] Done  Tag  Filter  Settings  Reload  Quit
+│ New  Open  Done  Tag  Filter  Settings  Reload  Quit
 └────────────────────────────────────────┘
 ```
 
@@ -59,7 +59,7 @@ project. See [docs/file-format.md](docs/file-format.md).
 | Command | Key | What it does |
 | --- | --- | --- |
 | New | n | Create a prompt from a title and open it in your editor |
-| Open | o | Read the prompt. From there: Edit, change the Title, Copy to clipboard, or go Back |
+| Open | o | Read the prompt. From there: Edit, change the Title, Copy to clipboard, mark Done, or go Back |
 | Done | d | Toggle the prompt as done. Done prompts are deleted on Quit |
 | Tag | t | Add or remove tags on the prompt |
 | Filter | f | Show only prompts that have every selected tag |
