@@ -23,3 +23,5 @@ Terminal app (Node, TypeScript, Ink) that manages AI prompt drafts in a
   file-format.md and ends with a newline.
 - Do not add settings, keys, or commands beyond the spec without asking.
 - Update `CHANGELOG.md` under Unreleased for user-visible changes.
+- Import sibling `.tsx` modules with a `.js` extension. A `.jsx` extension
+  is copied into `dist/` unchanged and fails at runtime.

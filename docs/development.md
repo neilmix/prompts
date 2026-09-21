@@ -32,6 +32,17 @@ Node 20 or later.
 mkdir -p tmp/play && npm run dev -- tmp/play
 ```
 
+## Local install
+
+```sh
+npm run build
+npm link
+```
+
+This symlinks `prompts` into the global npm bin (Homebrew's
+`/opt/homebrew/bin` when npm came from Homebrew). Rebuild after changes;
+the link follows `dist/`. Remove with `npm unlink -g @neilmix/prompts`.
+
 ## Release
 
 1. Update `CHANGELOG.md`.

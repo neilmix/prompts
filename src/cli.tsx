@@ -32,6 +32,8 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<numb
     store = loaded.store;
   }
   if (!isTty) return needTty();
+  // The editor owns the terminal while it runs; leaving mouse reporting on
+  // would feed it our click sequences.
   const editor = async (command: string, file: string) => {
     process.stdout.write(MOUSE_OFF);
     try {

@@ -24,6 +24,8 @@ export type KeyAction =
   | { type: 'mouse'; button: 'left' | 'wheelUp' | 'wheelDown' | 'other'; x: number; y: number }
   | null;
 
+// SGR mouse report `ESC [ < b ; x ; y M`. Ink strips the ESC before
+// useInput sees it, so the match starts at `[`.
 const MOUSE_RE = /^\[<(\d+);(\d+);(\d+)([mM])$/;
 
 /** Normalize Ink's (input, key) into one named action. */

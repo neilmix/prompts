@@ -18,7 +18,8 @@ Published on npm as `prompts` with a single `bin` entry.
 
 ```
 src/
-  cli.ts              entry point: argv, startup checks, render <App/>
+  cli.tsx             entry point: argv, store open, terminal check,
+                      first-run Setup question, mouse mode, exit summary
   store/
     format.ts         parse/serialize the `key: value` settings syntax
     ids.ts            ID generation and validation
@@ -36,6 +37,7 @@ src/
     App.tsx           root: reducer, side-effecting actions, ^C, quit
                       confirmation overlay, minimum size guard, view switch
     ListView.tsx      the main view
+    Setup.tsx         "Configure now? (y/n)" shown when .prompts is missing
     context.ts        Actions and ViewProps shared by views
     keys.ts           toAction: Ink (input, key) → named action, incl. mouse;
                       vimAction: j/k/g/G mapping
@@ -65,6 +67,14 @@ src/
 ```
 
 Tests sit next to the code as `*.test.ts` / `*.test.tsx`.
+
+## Startup
+
+`openStore` never creates files. It returns the loaded store, a list of
+validation errors, or `missing` when `.prompts` is absent. The CLI handles
+`missing` by rendering `Setup` in the normal screen and, on `y`, calling
+`initStore` then `loadStore`. Errors are reported before the terminal check
+so they work in pipes and tests.
 
 ## State
 
