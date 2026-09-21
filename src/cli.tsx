@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { render } from 'ink';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { runEditor } from './editor.js';
 import { realFs } from './store/fs.js';
@@ -43,8 +44,18 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<numb
   return 0;
 }
 
-const isEntry = process.argv[1] !== undefined && import.meta.url === new URL(`file://${path.resolve(process.argv[1])}`).href;
-if (isEntry) {
+/** True when this file is the script Node was started with, even through a symlinked bin. */
+function isEntry(): boolean {
+  const script = process.argv[1];
+  if (script === undefined) return false;
+  try {
+    return import.meta.url === new URL(`file://${fs.realpathSync(script)}`).href;
+  } catch {
+    return false;
+  }
+}
+
+if (isEntry()) {
   main(process.argv.slice(2), process.env).then(
     (code) => process.exit(code),
     (e) => {

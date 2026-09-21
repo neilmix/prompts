@@ -23,6 +23,17 @@ describe('cli startup', () => {
     expect(r.stderr).toBe('Not a prompts directory\n');
   });
 
+  it('runs when started through a symlink, as npm link does', () => {
+    fs.mkdirSync(path.join(ROOT, 'bin'));
+    const link = path.join(ROOT, 'bin', 'prompts.tsx');
+    fs.symlinkSync(path.resolve('src/cli.tsx'), link);
+    const dir = path.join(ROOT, 'empty');
+    fs.mkdirSync(dir);
+    const r = spawnSync('node', ['--import', 'tsx', link, dir], { encoding: 'utf8' });
+    expect(r.stderr).toBe('prompts needs an interactive terminal\n');
+    expect(r.status).toBe(1);
+  });
+
   it('refuses a non-terminal', () => {
     const dir = path.join(ROOT, 'empty');
     fs.mkdirSync(dir);
