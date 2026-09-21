@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
     environment: 'node',
+    env: { FORCE_COLOR: '1' },
   },
 });
