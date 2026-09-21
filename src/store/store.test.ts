@@ -114,9 +114,9 @@ describe('settings', () => {
   });
 
   it('resolves editor in order: setting, $EDITOR, vi', () => {
-    expect(resolveEditor({ editor: 'code --wait' }, { EDITOR: 'nano' })).toEqual(['code', '--wait']);
-    expect(resolveEditor({}, { EDITOR: 'nano' })).toEqual(['nano']);
-    expect(resolveEditor({ editor: '  ' }, {})).toEqual(['vi']);
+    expect(resolveEditor({ editor: 'code --wait' }, { EDITOR: 'nano' })).toBe('code --wait');
+    expect(resolveEditor({}, { EDITOR: 'nano' })).toBe('nano');
+    expect(resolveEditor({ editor: '  ' }, {})).toBe('vi');
   });
 });
 

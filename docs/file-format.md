@@ -28,7 +28,7 @@ Used by `settings.txt` and every file in `index/`.
 
 | Key | Required | Meaning |
 | --- | --- | --- |
-| `editor` | no | Editor command. Overrides `$EDITOR`. |
+| `editor` | no | Shell command that opens a file for editing. Overrides `$EDITOR`. |
 
 ## `index/<id>.txt`
 

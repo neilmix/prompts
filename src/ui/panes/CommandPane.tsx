@@ -1,43 +1,51 @@
 import { Box, Text } from 'ink';
-import type { Button } from '../hooks/useButtons.js';
+import type { Message } from '../../model/types.js';
+import type { Button } from '../hooks/useCommands.js';
+import { Separator } from './Separator.js';
 
-export const COMMAND_PANE_HEIGHT = 2;
+export function commandPaneHeight(message: Message | null): number {
+  return message ? 3 : 2;
+}
 
 export function CommandPane({
   buttons,
-  selected,
-  error,
+  focus,
+  message,
   columns,
 }: {
   buttons: Button[];
-  selected: number;
-  error: string | null;
+  /** 0 = none focused; n = button n-1. */
+  focus: number;
+  message: Message | null;
   columns: number;
 }) {
   return (
-    <Box flexDirection="column" height={COMMAND_PANE_HEIGHT} width={columns} overflow="hidden">
+    <Box flexDirection="column" height={commandPaneHeight(message)} width={columns} overflow="hidden">
       <Separator columns={columns} />
+      {message && (
+        <Text color={message.kind === 'error' ? 'red' : 'green'} wrap="truncate">
+          {message.text}
+        </Text>
+      )}
       <Box flexWrap="nowrap">
-        {error !== null ? (
-          <Text color="red" wrap="truncate">
-            {error}
-          </Text>
-        ) : (
-          buttons.map((b, i) => (
-            <Box key={b.label} marginRight={2} flexShrink={0}>
-              <Text inverse={i === selected}>{b.label}</Text>
-            </Box>
-          ))
-        )}
+        {buttons.map((b, i) => (
+          <Box key={b.label} marginRight={2} flexShrink={0}>
+            <ButtonLabel button={b} focused={i + 1 === focus} />
+          </Box>
+        ))}
       </Box>
     </Box>
   );
 }
 
-export function Separator({ columns }: { columns: number }) {
+function ButtonLabel({ button, focused }: { button: Button; focused: boolean }) {
+  const i = button.label.toLowerCase().indexOf(button.shortcut);
+  const at = i < 0 ? button.label.length : i;
   return (
-    <Box height={1}>
-      <Text dimColor>{'─'.repeat(Math.max(0, columns))}</Text>
-    </Box>
+    <Text inverse={focused}>
+      {button.label.slice(0, at)}
+      <Text underline>{button.label.slice(at, at + 1)}</Text>
+      {button.label.slice(at + 1)}
+    </Text>
   );
 }

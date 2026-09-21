@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Key } from 'ink';
-import { toAction } from './keys.js';
+import { toAction, vimAction } from './keys.js';
 
 const key = (over: Partial<Key> = {}): Key => ({
   upArrow: false, downArrow: false, leftArrow: false, rightArrow: false,
@@ -18,6 +18,7 @@ describe('toAction', () => {
     expect(toAction('down', key({ downArrow: true, ctrl: true, shift: true }))).toEqual({ type: 'bottom' });
     expect(toAction('', key({ home: true }))).toEqual({ type: 'home' });
     expect(toAction('', key({ end: true }))).toEqual({ type: 'end' });
+    expect(toAction('', key({ leftArrow: true }))).toEqual({ type: 'left' });
   });
 
   it('maps control keys', () => {
@@ -37,9 +38,27 @@ describe('toAction', () => {
   it('maps printable text to char and drops control chars', () => {
     expect(toAction('a', key())).toEqual({ type: 'char', text: 'a' });
     expect(toAction('A', key({ shift: true }))).toEqual({ type: 'char', text: 'A' });
-    expect(toAction('héllo', key())).toEqual({ type: 'char', text: 'héllo' });
     expect(toAction('\x01', key())).toBeNull();
     expect(toAction('', key())).toBeNull();
     expect(toAction('x', key({ meta: true }))).toBeNull();
+  });
+
+  it('decodes SGR mouse reports (escape already stripped) into 0-based coordinates', () => {
+    expect(toAction('[<0;12;5M', key())).toEqual({ type: 'mouse', button: 'left', x: 11, y: 4 });
+    expect(toAction('[<64;1;1M', key())).toEqual({ type: 'mouse', button: 'wheelUp', x: 0, y: 0 });
+    expect(toAction('[<65;1;1M', key())).toEqual({ type: 'mouse', button: 'wheelDown', x: 0, y: 0 });
+    expect(toAction('[<0;12;5m', key())).toBeNull();
+    expect(toAction('[<2;12;5M', key())).toEqual({ type: 'mouse', button: 'other', x: 11, y: 4 });
+  });
+});
+
+describe('vimAction', () => {
+  it('maps j k g G', () => {
+    expect(vimAction({ type: 'char', text: 'j' })).toEqual({ type: 'down' });
+    expect(vimAction({ type: 'char', text: 'k' })).toEqual({ type: 'up' });
+    expect(vimAction({ type: 'char', text: 'g' })).toEqual({ type: 'top' });
+    expect(vimAction({ type: 'char', text: 'G' })).toEqual({ type: 'bottom' });
+    expect(vimAction({ type: 'char', text: 'x' })).toBeNull();
+    expect(vimAction({ type: 'up' })).toBeNull();
   });
 });

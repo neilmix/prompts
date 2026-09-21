@@ -4,7 +4,8 @@ import * as path from 'node:path';
 import { runEditor } from './editor.js';
 import { realFs } from './store/fs.js';
 import { openStore } from './store/open.js';
-import { App } from './ui/App.js';
+import { App, type ExitResult } from './ui/App.js';
+import { MOUSE_OFF, MOUSE_ON } from './ui/keys.js';
 
 export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   const dir = path.resolve(argv[0] ?? process.cwd());
@@ -17,11 +18,28 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<numb
     process.stderr.write('prompts needs an interactive terminal\n');
     return 1;
   }
-  const instance = render(<App fs={realFs} store={result.store} env={env} runEditor={runEditor} />, {
+  const editor = async (command: string, file: string) => {
+    process.stdout.write(MOUSE_OFF);
+    try {
+      await runEditor(command, file);
+    } finally {
+      process.stdout.write(MOUSE_ON);
+    }
+  };
+  const instance = render(<App fs={realFs} store={result.store} env={env} runEditor={editor} />, {
     exitOnCtrlC: false,
     alternateScreen: true,
   });
-  await instance.waitUntilExit();
+  process.stdout.write(MOUSE_ON);
+  let outcome: ExitResult | undefined;
+  try {
+    outcome = (await instance.waitUntilExit()) as ExitResult | undefined;
+  } finally {
+    process.stdout.write(MOUSE_OFF);
+  }
+  if (outcome && outcome.deleted > 0) {
+    process.stdout.write(`Deleted ${outcome.deleted} prompt${outcome.deleted === 1 ? '' : 's'}.\n`);
+  }
   return 0;
 }
 

@@ -13,21 +13,36 @@ export function matchesFilter(prompt: Prompt, filter: readonly string[]): boolea
   return filter.every((f) => prompt.tags.some((t) => tagEq(t, f)));
 }
 
-/** Ids in display order that pass the filter. */
-export function visibleIds(state: Pick<State, 'prompts' | 'sort' | 'filter'>): string[] {
-  return fullOrder(state).filter((id) => matchesFilter(state.prompts.get(id)!, state.filter));
+export function matchesSearch(prompt: Prompt, search: string): boolean {
+  return search === '' || prompt.title.toLowerCase().includes(search.toLowerCase());
+}
+
+/** Ids in display order that pass the filter and search. */
+export function visibleIds(state: Pick<State, 'prompts' | 'sort' | 'filter' | 'search'>): string[] {
+  return fullOrder(state).filter((id) => {
+    const p = state.prompts.get(id)!;
+    return matchesFilter(p, state.filter) && matchesSearch(p, state.search);
+  });
 }
 
 /** Every tag in use, deduplicated case-insensitively, first spelling wins, sorted. */
 export function allTags(prompts: Iterable<Prompt>): string[] {
-  const seen = new Map<string, string>();
+  return [...tagCounts(prompts).keys()];
+}
+
+/** Tag → number of prompts carrying it. Keys are first-seen spellings, sorted. */
+export function tagCounts(prompts: Iterable<Prompt>): Map<string, number> {
+  const seen = new Map<string, { tag: string; count: number }>();
   for (const p of prompts) {
     for (const t of p.tags) {
       const k = tagKey(t);
-      if (!seen.has(k)) seen.set(k, t);
+      const e = seen.get(k);
+      if (e) e.count++;
+      else seen.set(k, { tag: t, count: 1 });
     }
   }
-  return [...seen.values()].sort((a, b) => tagKey(a).localeCompare(tagKey(b)));
+  const sorted = [...seen.values()].sort((a, b) => tagKey(a.tag).localeCompare(tagKey(b.tag)));
+  return new Map(sorted.map((e) => [e.tag, e.count]));
 }
 
 /** Existing spelling of `tag`, or `tag` itself when new. */

@@ -28,31 +28,40 @@ src/
     validate.ts       startup validation, error messages
     fs.ts             filesystem adapter (real and in-memory for tests)
   model/
-    types.ts          Prompt, Settings, Store, Filter
-    state.ts          app state reducer: selection, filter, completed set,
-                      modal stack
-    select.ts         derived data: visible prompts, all tags, tag matching
+    types.ts          Prompt, State, Modal, Message
+    state.ts          app state reducer: selection, filter, search, done set,
+                      modal, message; replaceStore for Reload
+    select.ts         derived data: visible prompts, tag counts, tag matching
   ui/
-    App.tsx           root: state, key routing, pane composition
+    App.tsx           root: reducer, side-effecting actions, ^C, quit
+                      confirmation overlay, minimum size guard, view switch
+    ListView.tsx      the main view
+    context.ts        Actions and ViewProps shared by views
+    keys.ts           toAction: Ink (input, key) → named action, incl. mouse;
+                      vimAction: j/k/g/G mapping
+    text.ts           wrapText, listViewport (scroll to keep selection),
+                      rangeLabel
     panes/
-      ListPane.tsx
-      TagPane.tsx
-      CommandPane.tsx
-      TitleBar.tsx
+      TitleBar.tsx    inverse bar: `View › Title` left, detail right
+      TagPane.tsx     separator + tag chips
+      CommandPane.tsx separator, message line, underlined-shortcut buttons
+      Separator.tsx   `─` rule with optional label and counter
     modals/
-      NewModal.tsx
-      OpenModal.tsx
+      NewModal.tsx    title entry, then editor
+      OpenModal.tsx   text pane, Edit/Title/Copy/Back
       TagModal.tsx
       FilterModal.tsx
       SettingsModal.tsx
     controls/
-      TextInput.tsx   shared single-line input with optional autocomplete
-      ScrollList.tsx  scrollable, selectable, wrapping list
-      Checklist.tsx   multi-select list for Filter
+      ListBody.tsx    renders viewport rows with gutter and focus styling
+      TextInput.tsx   single-line entry with completion hint
+      Confirm.tsx     y/n question in the input pane
     hooks/
-      useKeys.ts      normalizes Ink key events into named actions
-      useSize.ts      terminal dimensions
-  editor.ts           spawn external editor with Ink paused
+      useCommands.ts  focus model: body + buttons; Left/Right/Tab/Enter/^letter
+      useKeyActions.ts useInput wrapper feeding toAction
+      useSize.ts      terminal dimensions (overridable for tests)
+  editor.ts           runs the editor shell command via `sh -c`
+  clipboard.ts        pbcopy / wl-copy / xclip / xsel
 ```
 
 Tests sit next to the code as `*.test.ts` / `*.test.tsx`.
@@ -61,13 +70,16 @@ Tests sit next to the code as `*.test.ts` / `*.test.tsx`.
 
 A single reducer in `model/state.ts` owns:
 
-- `prompts`: map of ID to Prompt, plus `order` from sort.txt
+- `prompts`: map of ID to Prompt, plus `sort` from sort.txt
 - `settings`
-- `selectedId`, `selectedButton`
-- `filter`: set of checked tags
-- `completed`: set of IDs
-- `modal`: `null | { kind, ...local state }`
-- `error`: transient message for the command pane
+- `selectedId`
+- `filter`: checked tags; `search`: title substring
+- `done`: set of IDs
+- `modal`: `null | { kind, id? }`
+- `message`: transient error or status for the command pane
+
+Per-view state (focus, scroll top, open entries) lives in the view
+component and resets when the view mounts.
 
 Side effects (writes, spawning the editor) happen in `App.tsx` handlers that
 call the store, then dispatch the resulting change. The reducer never
@@ -75,27 +87,36 @@ touches the filesystem.
 
 ## Key handling
 
-Ink's `useInput` delivers `(input, key)`. `useKeys` maps that to one of a
-fixed set of action names (`up`, `pageDown`, `top`, `moveUp`, `activate`,
-`shortcut:n`, ...) so components never inspect raw key flags. Terminal
-support for Ctrl+Shift+arrows varies; Home and End are the reliable
-alternates and map to the same actions.
+Ink's `useInput` delivers `(input, key)`. `toAction` in `ui/keys.ts` maps
+that to one named action (`up`, `pageDown`, `moveUp`, `shortcut`, `char`,
+`mouse`, ...) so components never inspect raw key flags. Terminal support
+for Ctrl+Shift+arrows varies; Home and End are the reliable alternates.
 
-Exactly one component consumes keys at a time: the topmost modal, or the
-list view. Inside a modal, a focused text input consumes keys before the
-modal's buttons.
+Each view calls `useCommands` for the focus model and `useKeyActions` for
+its body keys. A view's handler is inactive while one of its text entries
+or the App-level quit confirmation is mounted; those components subscribe
+themselves. `App` keeps one extra `useInput` for ^C and message clearing.
+
+Mouse: the CLI enables SGR mouse reporting (`?1000h ?1006h`). Reports
+arrive through `useInput` as text like `[<0;12;5M`, which `toAction`
+decodes into 0-based coordinates. Views hit-test against their own layout.
+Mouse reporting is turned off around the editor and on exit.
 
 ## Editor
 
-`editor.ts` calls Ink's `instance.clear()`, then `spawnSync` with
-`stdio: 'inherit'`, then re-renders. Ink is not unmounted; stdin raw mode
-is released for the duration via `setRawMode(false)`.
+`App.edit` wraps `runEditor` in Ink's `suspendTerminal`, which releases
+raw mode and the alternate screen, then redraws. `runEditor` spawns
+`sh -c '<command> "$@"' sh <file>` with inherited stdio. Renders that
+happen during the suspension are discarded, so `edit` dispatches a no-op
+afterwards to force a redraw.
 
 ## Testing
 
 - Store and model: plain vitest unit tests against the in-memory fs adapter.
-- UI: `ink-testing-library` renders components, feeds key sequences with
-  `stdin.write`, and asserts on `lastFrame()`. Escape sequences for special
-  keys are defined once in a test helper.
+- UI: `src/test/harness.tsx` renders `App` over a `MemoryFs` with
+  `ink-testing-library`, feeds key sequences from `src/test/keys.ts`, and
+  tests assert on the stripped frame. `FORCE_COLOR=1` is set in the vitest
+  config so focus styling is visible in frames. A bare Escape needs a 40ms
+  wait because Ink holds it to see if a sequence follows.
 - Startup: integration tests run `cli.ts` against temp directories in
   `./tmp` and assert exit codes and stderr.

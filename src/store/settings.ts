@@ -36,11 +36,7 @@ export function saveSettings(fs: Fs, paths: Paths, settings: AppSettings): void 
   fs.writeFile(paths.settings, serializeSettings(out));
 }
 
-/** Resolve the editor command into argv. */
-export function resolveEditor(
-  settings: AppSettings,
-  env: Record<string, string | undefined>,
-): string[] {
-  const cmd = settings.editor?.trim() || env.EDITOR?.trim() || 'vi';
-  return cmd.split(/\s+/);
+/** Resolve the editor shell command: setting, then $EDITOR, then vi. */
+export function resolveEditor(settings: AppSettings, env: Record<string, string | undefined>): string {
+  return settings.editor?.trim() || env.EDITOR?.trim() || 'vi';
 }

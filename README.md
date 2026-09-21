@@ -30,14 +30,13 @@ project. See [docs/file-format.md](docs/file-format.md).
 
 ```
 ┌ list pane ─────────────────────────────┐
-│ > Refactor the auth middleware         │
-│                                        │
+│ ▸ Refactor the auth middleware         │
 │   Write release notes for 2.3          │
 │                                        │
 ├ tag pane ──────────────────────────────┤
-│ backend  auth                          │
+│ [backend] [auth]                       │
 ├ command pane ──────────────────────────┤
-│ [New] Open Complete Tag Filter Settings Leave
+│ New  Open  [ ] Done  Tag  Filter  Settings  Reload  Quit
 └────────────────────────────────────────┘
 ```
 
@@ -59,18 +58,20 @@ project. See [docs/file-format.md](docs/file-format.md).
 
 | Command | Shortcut | What it does |
 | --- | --- | --- |
-| New | Ctrl+N | Create a prompt from a title |
-| Open | Ctrl+O | Read the prompt. From there: Edit in your editor, change the Title, or go Back |
-| Complete | Ctrl+C | Toggle the prompt as complete. Completed prompts are deleted on Leave |
+| New | Ctrl+N | Create a prompt from a title and open it in your editor |
+| Open | Ctrl+O | Read the prompt. From there: Edit, change the Title, Copy to clipboard, or go Back |
+| Done | Ctrl+D | Toggle the prompt as done. Done prompts are deleted on Quit |
 | Tag | Ctrl+T | Add or remove tags on the prompt |
 | Filter | Ctrl+F | Show only prompts that have every selected tag |
 | Settings | Ctrl+S | Change the editor command |
-| Leave | Ctrl+L | Exit, deleting completed prompts |
+| Reload | Ctrl+R | Reread `.prompts` from disk |
+| Quit | Ctrl+Q, Ctrl+C | Exit, deleting done prompts after confirmation |
 
 ## Editor
 
 Editing uses, in order: the `editor` setting in `.prompts/settings.txt`,
-then `$EDITOR`, then `vi`.
+then `$EDITOR`, then `vi`. The value is a shell command, so
+`code --wait` or `emacsclient -nw` work.
 
 ## Documentation
 

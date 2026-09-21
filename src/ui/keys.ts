@@ -21,7 +21,10 @@ export type KeyAction =
   | { type: 'delete' }
   | { type: 'shortcut'; letter: string }
   | { type: 'char'; text: string }
+  | { type: 'mouse'; button: 'left' | 'wheelUp' | 'wheelDown' | 'other'; x: number; y: number }
   | null;
+
+const MOUSE_RE = /^\[<(\d+);(\d+);(\d+)([mM])$/;
 
 /** Normalize Ink's (input, key) into one named action. */
 export function toAction(input: string, key: Key): KeyAction {
@@ -47,7 +50,29 @@ export function toAction(input: string, key: Key): KeyAction {
     return /^[a-z]$/.test(input) ? { type: 'shortcut', letter: input } : null;
   }
   if (key.meta) return null;
+  const m = MOUSE_RE.exec(input);
+  if (m) {
+    if (m[4] !== 'M') return null;
+    const code = Number(m[1]);
+    const button = code === 0 ? 'left' : code === 64 ? 'wheelUp' : code === 65 ? 'wheelDown' : 'other';
+    return { type: 'mouse', button, x: Number(m[2]) - 1, y: Number(m[3]) - 1 };
+  }
   if (input === ' ') return { type: 'space' };
   if (input.length > 0 && !/[\x00-\x1f\x7f]/.test(input)) return { type: 'char', text: input };
   return null;
 }
+
+/** Map vim-style letters to body actions. Returns null when not a vim key. */
+export function vimAction(action: NonNullable<KeyAction>): NonNullable<KeyAction> | null {
+  if (action.type !== 'char') return null;
+  switch (action.text) {
+    case 'j': return { type: 'down' };
+    case 'k': return { type: 'up' };
+    case 'g': return { type: 'top' };
+    case 'G': return { type: 'bottom' };
+    default: return null;
+  }
+}
+
+export const MOUSE_ON = '\x1b[?1000h\x1b[?1006h';
+export const MOUSE_OFF = '\x1b[?1000l\x1b[?1006l';

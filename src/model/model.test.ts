@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allTags, canonicalTag, completeTag, validateTag, visibleIds } from './select.js';
+import { allTags, canonicalTag, completeTag, tagCounts, validateTag, visibleIds } from './select.js';
 import { initialState, reduce, type Action } from './state.js';
 import type { Prompt, State } from './types.js';
 
@@ -60,12 +60,34 @@ describe('filter', () => {
   });
 });
 
-describe('completed', () => {
+describe('done', () => {
   it('toggles and is dropped on removal', () => {
-    const s = run(make([A]), { type: 'toggleComplete', id: A.id });
-    expect(s.completed.has(A.id)).toBe(true);
-    expect(run(s, { type: 'toggleComplete', id: A.id }).completed.size).toBe(0);
-    expect(run(s, { type: 'removePrompts', ids: [A.id] }).completed.size).toBe(0);
+    const s = run(make([A]), { type: 'toggleDone', id: A.id });
+    expect(s.done.has(A.id)).toBe(true);
+    expect(run(s, { type: 'toggleDone', id: A.id }).done.size).toBe(0);
+    expect(run(s, { type: 'removePrompts', ids: [A.id] }).done.size).toBe(0);
+  });
+});
+
+describe('search', () => {
+  it('matches title substrings case-insensitively and combines with filter', () => {
+    const s = run(make([A, B, C]), { type: 'setSearch', search: 'B' });
+    expect(visibleIds(s)).toEqual([B.id]);
+    expect(visibleIds(run(s, { type: 'setSearch', search: '' }))).toEqual([C.id, B.id, A.id]);
+    expect(visibleIds(run(s, { type: 'setSearch', search: 'a' }, { type: 'toggleFilterTag', tag: 'urgent' }))).toEqual([A.id]);
+    expect(visibleIds(run(s, { type: 'setSearch', search: 'b' }, { type: 'toggleFilterTag', tag: 'urgent' }))).toEqual([]);
+    expect(visibleIds(run(s, { type: 'setSearch', search: 'zzz' }))).toEqual([]);
+  });
+});
+
+describe('replaceStore', () => {
+  it('swaps data and keeps selection, filter and done where ids survive', () => {
+    const s = run(make([A, B, C]), { type: 'select', id: B.id }, { type: 'toggleDone', id: B.id }, { type: 'toggleDone', id: C.id });
+    const r = reduce(s, { type: 'replaceStore', store: { prompts: new Map([[B.id, B], [A.id, A]]), sort: [A.id], settings: { editor: 'x' } } });
+    expect(r.selectedId).toBe(B.id);
+    expect([...r.done]).toEqual([B.id]);
+    expect(r.settings).toEqual({ editor: 'x' });
+    expect(visibleIds(r)).toEqual([B.id, A.id]);
   });
 });
 
@@ -81,6 +103,10 @@ describe('tags', () => {
   it('lists unique tags sorted, first spelling wins', () => {
     expect(allTags([A, B, C])).toEqual(['urgent', 'Work']);
     expect(allTags([B, A])).toEqual(['urgent', 'work']);
+  });
+
+  it('counts prompts per tag', () => {
+    expect([...tagCounts([A, B, C])]).toEqual([['urgent', 1], ['Work', 2]]);
   });
 
   it('canonicalizes to existing spelling', () => {

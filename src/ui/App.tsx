@@ -1,14 +1,17 @@
-import { useApp, useInput } from 'ink';
-import { useReducer } from 'react';
+import { Box, Text, useApp, useInput } from 'ink';
+import * as path from 'node:path';
+import { useReducer, useState } from 'react';
+import { copyToClipboard } from '../clipboard.js';
 import { fullOrder, visibleIds } from '../model/select.js';
 import { initialState, reduce } from '../model/state.js';
-import type { AppSettings } from '../model/types.js';
+import type { AppSettings, Message } from '../model/types.js';
 import type { Fs } from '../store/fs.js';
-import type { Store } from '../store/open.js';
+import { loadStore, type Store } from '../store/open.js';
 import { createPrompt, deletePrompt, ensureText, readText, savePrompt } from '../store/prompts.js';
 import { resolveEditor, saveSettings } from '../store/settings.js';
 import { moveInOrder, saveSort } from '../store/sort.js';
-import type { Actions } from './context.js';
+import { Confirm, CONFIRM_HEIGHT } from './controls/Confirm.js';
+import type { Actions, Overlay } from './context.js';
 import { useSize, type Size } from './hooks/useSize.js';
 import { ListView } from './ListView.js';
 import { FilterModal } from './modals/FilterModal.js';
@@ -17,30 +20,55 @@ import { OpenModal } from './modals/OpenModal.js';
 import { SettingsModal } from './modals/SettingsModal.js';
 import { TagModal } from './modals/TagModal.js';
 
+export const MIN_COLUMNS = 40;
+export const MIN_ROWS = 10;
+
+/** Value passed to Ink's exit(); the CLI prints the summary. */
+export interface ExitResult {
+  deleted: number;
+}
+
 export interface AppProps {
   fs: Fs;
   store: Store;
   env: Record<string, string | undefined>;
-  /** Run the editor argv on a file; resolves when it exits. */
-  runEditor: (argv: string[], file: string) => Promise<void>;
+  /** Run the editor shell command on a file; resolves when it exits. */
+  runEditor: (command: string, file: string) => Promise<void>;
+  copy?: (text: string) => Promise<void>;
+  /** Called instead of Ink's exit(); for tests. */
+  onExit?: (result: ExitResult) => void;
   size?: Size;
   now?: () => Date;
 }
 
-export function App({ fs, store, env, runEditor, size: sizeOverride, now = () => new Date() }: AppProps) {
-  const { exit } = useApp();
+export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit, size: sizeOverride, now = () => new Date() }: AppProps) {
+  const app = useApp();
+  const exit = onExit ?? app.exit;
   const size = useSize(sizeOverride);
   const [state, dispatch] = useReducer(reduce, store, initialState);
+  const [confirmingQuit, setConfirmingQuit] = useState(false);
   const { paths } = store;
 
-  useInput(() => dispatch({ type: 'setError', error: null }), { isActive: state.error !== null });
-
-  const guarded = (f: () => void) => {
+  const fail = (e: unknown) => dispatch({ type: 'setMessage', message: { kind: 'error', text: (e as Error).message } });
+  const guarded = <T,>(f: () => T, fallback: T): T => {
     try {
-      f();
+      return f();
     } catch (e) {
-      dispatch({ type: 'setError', error: (e as Error).message });
+      fail(e);
+      return fallback;
     }
+  };
+
+  const quit = (deleteDone: boolean) => {
+    let deleted = 0;
+    if (deleteDone && state.done.size > 0) {
+      guarded(() => {
+        for (const id of state.done) deletePrompt(fs, paths, id);
+        saveSort(fs, paths, fullOrder(state).filter((id) => !state.done.has(id)));
+        deleted = state.done.size;
+      }, undefined);
+    }
+    exit({ deleted } satisfies ExitResult);
   };
 
   const actions: Actions = {
@@ -52,19 +80,20 @@ export function App({ fs, store, env, runEditor, size: sizeOverride, now = () =>
         dispatch({ type: 'upsertPrompt', prompt });
         dispatch({ type: 'setSort', sort });
         dispatch({ type: 'select', id: prompt.id });
-      }),
+        return prompt.id;
+      }, null),
     rename: (id, title) =>
       guarded(() => {
         const prompt = { ...state.prompts.get(id)!, title: title.trim() };
         savePrompt(fs, paths, prompt);
         dispatch({ type: 'upsertPrompt', prompt });
-      }),
+      }, undefined),
     setTags: (id, tags) =>
       guarded(() => {
         const prompt = { ...state.prompts.get(id)!, tags };
         savePrompt(fs, paths, prompt);
         dispatch({ type: 'upsertPrompt', prompt });
-      }),
+      }, undefined),
     move: (dir) =>
       guarded(() => {
         if (state.selectedId === null) return;
@@ -72,40 +101,79 @@ export function App({ fs, store, env, runEditor, size: sizeOverride, now = () =>
         if (!sort) return;
         saveSort(fs, paths, sort);
         dispatch({ type: 'setSort', sort });
-      }),
+      }, undefined),
     saveSettings: (settings: AppSettings) =>
       guarded(() => {
         saveSettings(fs, paths, settings);
         dispatch({ type: 'setSettings', settings });
-      }),
-    readText: (id) => {
-      try {
-        return readText(fs, paths, id);
-      } catch (e) {
-        dispatch({ type: 'setError', error: (e as Error).message });
-        return '';
-      }
-    },
+      }, undefined),
+    readText: (id) => guarded(() => readText(fs, paths, id), ''),
+    textPath: (id) => path.relative(path.dirname(paths.root), paths.textFile(id)),
     edit: async (id, suspend) => {
       try {
         const file = ensureText(fs, paths, id);
-        const argv = resolveEditor(state.settings, env);
-        await suspend(() => runEditor(argv, file));
+        await suspend(() => runEditor(resolveEditor(state.settings, env), file));
+        // Force a redraw: renders during the suspension are discarded.
+        dispatch({ type: 'setMessage', message: null });
       } catch (e) {
-        dispatch({ type: 'setError', error: (e as Error).message });
+        fail(e);
       }
     },
-    leave: () =>
-      guarded(() => {
-        const ids = [...state.completed];
-        for (const id of ids) deletePrompt(fs, paths, id);
-        if (ids.length > 0) saveSort(fs, paths, fullOrder(state).filter((id) => !state.completed.has(id)));
-        dispatch({ type: 'removePrompts', ids });
-        exit();
-      }),
+    copy: async (id) => {
+      try {
+        await copy(readText(fs, paths, id));
+        dispatch({ type: 'setMessage', message: { kind: 'status', text: 'Copied' } satisfies Message });
+      } catch (e) {
+        fail(e);
+      }
+    },
+    reload: () => {
+      const r = loadStore(fs, paths);
+      if (r.ok) dispatch({ type: 'replaceStore', store: r.store });
+      else dispatch({ type: 'setMessage', message: { kind: 'error', text: `reload failed: ${r.errors[0]}` } });
+    },
+    requestQuit: () => {
+      if (state.done.size === 0) quit(false);
+      else setConfirmingQuit(true);
+    },
   };
 
-  const props = { state, dispatch, actions, size };
+  const tooSmall = size.rows < MIN_ROWS || size.columns < MIN_COLUMNS;
+
+  useInput((input, key) => {
+    if (key.ctrl && input === 'c') {
+      if (confirmingQuit) return;
+      if (tooSmall) quit(false);
+      else actions.requestQuit();
+      return;
+    }
+    if (tooSmall && key.ctrl && input === 'q') quit(false);
+    else if (state.message !== null) dispatch({ type: 'setMessage', message: null });
+  });
+
+  if (tooSmall) {
+    return (
+      <Box height={size.rows} width={size.columns} alignItems="center" justifyContent="center">
+        <Text color="red">terminal too small</Text>
+      </Box>
+    );
+  }
+
+  const overlay: Overlay | null = confirmingQuit
+    ? {
+        height: CONFIRM_HEIGHT,
+        node: (
+          <Confirm
+            columns={size.columns}
+            question={`Delete ${state.done.size} done prompt${state.done.size === 1 ? '' : 's'}?`}
+            onYes={() => quit(true)}
+            onNo={() => setConfirmingQuit(false)}
+          />
+        ),
+      }
+    : null;
+
+  const props = { state, dispatch, actions, size, overlay };
   switch (state.modal?.kind) {
     case 'new':
       return <NewModal {...props} />;

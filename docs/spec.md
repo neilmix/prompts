@@ -5,6 +5,7 @@ derived from it. When behavior changes, change this file in the same commit.
 
 Terms: a **prompt** is one item, made of a title, tags, and a text body. The
 **store** is the `.prompts` directory (see [file-format.md](file-format.md)).
+`^X` means Ctrl+X.
 
 ## 1. Startup
 
@@ -19,149 +20,182 @@ Terms: a **prompt** is one item, made of a title, tags, and a text body. The
    problem to stderr and exit with status 1. Nothing is rendered.
 6. Stdin and stdout must both be terminals. Otherwise print
    `prompts needs an interactive terminal` to stderr and exit with status 1.
+7. The app runs in the terminal's alternate screen.
+8. If the terminal is smaller than 40 columns by 10 rows, the whole screen
+   shows `terminal too small` and only ^C and ^Q work.
 
 ## 2. Screen layout
 
-Three stacked panes fill the terminal:
+Every view is a stack of panes filling the terminal:
 
-- **List pane**: titles of prompts that pass the current filter, in sort
-  order, one blank line between items. Long titles wrap. Scrolls when the
-  content overflows. Shows `no prompts` in dark gray when empty.
-- **Tag pane**: tags of the selected prompt, space separated, wrapping.
-  Empty when nothing is selected.
-- **Command pane**: the available command buttons for the current context.
+- **Title bar** (modals only): one inverse line. Left: `View › Title`.
+  Right: a dim detail such as the prompt ID.
+- **Body**: a list or a text pane. Scrolls when it overflows.
+- **Tag pane** (list view and Open): the selected prompt's tags as chips,
+  `[work] [urgent]`, wrapping. Blank when there are no tags.
+- **Input pane** (when a text entry is active): one separator, then
+  `Label: value`.
+- **Command pane**: a separator, an optional message line, then the buttons.
 
-Modals replace the list and tag panes but keep the same three-pane shape:
-title bar, body, command pane.
+Separators are full-width `─` lines. A separator may carry a dim label on
+its left, e.g. `─ tags ────`, and a dim counter on its right, e.g.
+`── 3–9 of 42 ─` when the body above it overflows.
 
-## 3. Selection and focus
+Empty bodies show a gray hint with the next action: `no prompts · ^N to
+create one`, `no tags · ^A to add one`, `empty · ^E to edit`.
 
-- If at least one prompt is listed, exactly one is selected and rendered
-  highlighted. The first item is selected at startup and after the selected
-  item disappears (filter change, deletion).
-- Exactly one command button is selected at a time, defaulting to the first
-  button of the current pane. Selection resets to the first button whenever
-  the command pane changes.
-- List selection and button selection are independent. Arrow keys move the
-  list selection. Tab moves the button selection. Enter activates
-  the selected button.
+## 3. Focus
 
-## 4. Keys in list view
+Each view has focus targets in order: the **body**, then each command
+button left to right. Exactly one target has focus. The body has focus when
+a view opens.
+
+- Left / Right: move focus to the previous / next target. Stops at the ends.
+- Tab: next target, wrapping from the last button to the body.
+- Enter: with a button focused, activates it. With the body focused,
+  performs the view's primary action (section 5).
+- Up / Down and the other body keys (section 4) act on the body no matter
+  which target has focus.
+- ^letter shortcuts work no matter which target has focus.
+- While a text entry is active, it takes every key (section 7).
+
+Display: the focused button is inverse. When the body has focus no button
+is inverse, and the selected body row is drawn white on a blue background.
+When a button has focus the selected body row is drawn bold with no
+background. The selected row always carries a `▸` in the two-column gutter.
+
+## 4. Body keys
+
+Available in every view whose body is a list or a text pane, unless a text
+entry is active.
 
 | Key | Action |
 | --- | --- |
-| Up / Down | Select previous / next item. Stops at the ends. |
-| Ctrl+Up / Ctrl+Down | Move selection by one page. The page height is the list pane height in lines. |
-| Ctrl+Shift+Up, Home | Select the first item. |
-| Ctrl+Shift+Down, End | Select the last item. |
-| Shift+Up / Shift+Down | Move the selected item one position up / down in the sort order (section 6). |
-| Tab | Select the next button, wrapping. |
-| Enter | Activate the selected button. |
-| Ctrl+letter | Activate the button whose label starts with that letter. |
+| Up, k | Previous row, or scroll text up one line |
+| Down, j | Next row, or scroll text down one line |
+| ^Up, PageUp | Up one page (the body height in rows) |
+| ^Down, PageDown | Down one page |
+| ^Shift+Up, Home, g | First row / top |
+| ^Shift+Down, End, G | Last row / bottom |
+| Shift+Up / Shift+Down | List view only: move the selected prompt in the sort order (section 6) |
+| q | List view: Quit. Modals: Back |
+| Escape | List view: clear search and tag filter. Modals: Back |
 
-Ctrl+letter shortcuts apply in every command pane, including modals. Ctrl+C
-therefore means Complete in list view and does not exit the app.
+Rows stay visible: the body scrolls the minimum needed to show the whole
+selected row.
 
-The selected item stays visible: the list scrolls the minimum needed to keep
-the whole selected item on screen.
+Mouse, when the terminal reports it: clicking a body row selects it,
+clicking a button activates it, wheel up / down moves the selection (or
+scrolls text) one row.
 
-## 5. Commands in list view
+## 5. Views
 
-Buttons, in order: **New, Open, Complete, Tag, Filter, Settings, Leave**.
+### List view
 
-### New (Ctrl+N)
+- Body: prompt titles, single-spaced, one row per prompt. A wrapped title
+  continues on following lines indented under the gutter. Done prompts
+  are prefixed `✓ `.
+- The first body line, when a search or filter is active, is a yellow
+  header: `Search: foo · Filter: work, urgent · 2 of 7`. Segments that do
+  not apply are omitted.
+- Tag pane shows the selected prompt's tags.
+- Buttons: **New, Open, Done, Tag, Filter, Settings, Reload, Quit**. Each
+  button's shortcut letter is underlined: N, O, D, T, F, S, R, Q.
+- Primary action (Enter on body): Open.
+- `/` opens the search entry (below).
 
-- Opens a modal with title bar `New prompt` and a single-line text input.
-- Enter with a non-empty (after trimming) title creates the prompt: a new ID,
-  an index file with the title and no tags, and an empty text file. The new
-  prompt is placed first in the sort order and becomes selected. Returns to
-  list view.
-- Enter with an empty title does nothing.
-- Escape cancels.
+**New (^N)**: title bar `New prompt`, a `Title` entry. Enter with a
+non-empty (trimmed) title creates the prompt with a new ID, an index file,
+and an empty text file, places it first in the sort order, selects it,
+then immediately runs the editor on it (as Edit does). On return, the list
+view is shown. Enter with an empty title does nothing. Escape cancels.
 
-### Open (Ctrl+O)
+**Open (^O)**: see the Open view.
 
-Opens a modal for the selected prompt:
+**Done (^D)**: toggles the selected prompt's done flag, in memory only. The
+button reads `[ ] Done` or `[x] Done` for the selected prompt. Nothing is
+deleted until Quit.
 
-- Title bar: the prompt title.
-- Body: the text file contents, scrollable with Up/Down (one line) and
-  Ctrl+Up/Ctrl+Down (one page). Home/End jump to the ends. Empty text shows
-  `empty` in dark gray.
-- Tag pane: the prompt's tags.
-- Buttons: **Edit, Title, Back**.
-- **Edit (Ctrl+E)**: suspends the UI, runs the editor (section 9) on the text
-  file, then resumes and reloads the text. Editor exit status is ignored.
-- **Title (Ctrl+T)**: shows a single-line text input pre-filled with the
-  current title in a pane at the bottom of the screen, above the command
-  pane. Enter with a non-empty title saves it to the index file. Empty
-  title does nothing. Escape closes the input without saving.
-- **Back (Ctrl+B)** and Escape return to list view.
+**Tag (^T)**, **Filter (^F)**, **Settings (^S)**: see those views.
 
-### Complete (Ctrl+C)
+**Reload (^R)**: rereads `.prompts` from disk. Selection, filter, search and
+done flags are kept where the IDs still exist. If the reread fails
+validation, the current state is kept and the first problem is shown as an
+error message.
 
-- Toggles the selected prompt's completed flag. The flag is in memory only.
-- The button reads `[ ] Complete` when the selected prompt is not completed
-  and `[x] Complete` when it is.
-- Completed items render with a `✓ ` prefix in the list.
-- Nothing is deleted until Leave.
+**Quit (^Q, also ^C in every view)**: if no prompt is marked done, exit
+immediately. Otherwise the input pane asks `Delete N done prompt(s)? (y/n)`.
+`y` deletes each done prompt's index file, text file and sort line, then
+exits. `n` or Escape cancels. After the alternate screen closes, the app
+prints `Deleted N prompt(s).` to stdout when N > 0. Exit status is 0.
 
-### Tag (Ctrl+T)
+**Search (`/`)**: a `Search` entry in the input pane. The list filters live
+as the user types: a prompt matches when its title contains the text,
+case-insensitively. Enter keeps the search and closes the entry. Escape
+clears the search and closes the entry. Search combines with the tag
+filter (both must match). Search is not persisted.
 
-Opens a modal for the selected prompt:
+### Open view
 
-- Title bar: the prompt title.
-- Body: scrollable list of the prompt's tags, first one selected. `no tags`
-  in dark gray when empty.
-- Buttons: **Add, Remove, Back**.
-- **Add (Ctrl+A)**: single-line text input at the bottom of the screen. As
-  the user types, the first existing tag (across all prompts, compared
-  case-insensitively, prefix match) that matches is shown as a dim
-  completion after the cursor. Right arrow or Tab accepts the completion.
-  Enter commits: the tag is trimmed, must be non-empty, must not contain a
-  comma, and is added if the prompt does not already have it
-  (case-insensitive). If an existing tag matches case-insensitively, the
+- Title bar: `Open › <title>`, right: the prompt ID.
+- Body: the text file, scrollable. A single trailing newline is not shown
+  as a blank line. Empty text shows the empty hint.
+- The separator below the body is labeled with the text file's relative
+  path, e.g. `─ .prompts/text/20260921-143005.txt ─`.
+- Tag pane shows the prompt's tags.
+- Buttons: **Edit, Title, Copy, Back**. Shortcuts E, T, Y (Copy's `y` is
+  underlined), B.
+- Primary action: Edit.
+- **Edit**: releases the terminal, runs the editor (section 9) on the text
+  file, then restores the screen and reloads the text. The editor's exit
+  status is ignored.
+- **Title**: `Title` entry pre-filled with the current title. Enter with a
+  non-empty title saves it to the index file. Empty does nothing. Escape
+  cancels.
+- **Copy**: copies the text to the system clipboard using the first
+  available of `pbcopy`, `wl-copy`, `xclip -selection clipboard`,
+  `xsel --clipboard --input`. Shows the status message `Copied` or an
+  error message if none is available or the command fails.
+- **Back**, Escape, q: return to the list view.
+
+### Tag view
+
+- Title bar: `Tags › <title>`, right: the prompt ID.
+- Body: the prompt's tags, one per row, first selected.
+- Buttons: **Add, Remove, Back** (A, R, B).
+- Primary action: Add.
+- **Add**: `Tag` entry. As the user types, the first tag in use across all
+  prompts that starts with the text (case-insensitive) is shown dim after
+  the cursor, with a dim `Tab completes` hint at the right of the line. Tab
+  or Right accepts it. Enter commits: the tag is trimmed, must be non-empty
+  and contain no comma, and is added unless the prompt already has it
+  (case-insensitive). When an existing tag matches case-insensitively, the
   existing spelling is used. Escape cancels.
-- **Remove (Ctrl+R)**: removes the selected tag from the prompt. Nothing
-  happens when the list is empty.
-- **Back (Ctrl+B)** and Escape return to list view.
+- Typing a printable character while no entry is active starts Add with
+  that character already entered.
+- **Remove**, Delete, Backspace: remove the selected tag. No-op when empty.
 - Changes are written to the index file immediately.
 
-### Filter (Ctrl+F)
+### Filter view
 
-- Title bar: `Filter tags`.
-- Body: every tag in use across all prompts, deduplicated
-  case-insensitively, sorted case-insensitively, each with a checkbox.
-  Up/Down move, Space toggles the highlighted tag. Enter activates the
-  selected button, so it does not toggle.
-- Buttons: **Back, Clear**.
-- **Clear (Ctrl+C)** unchecks every tag.
-- **Back (Ctrl+B)** and Escape return to list view with the filter applied.
-- A prompt is listed when it has every checked tag (AND). No checked tags
-  means every prompt is listed.
-- When a filter is active, the list pane's first line reads
-  `Filter: tag1, tag2` in dark gray.
-- The filter is not persisted. It is empty on every start.
+- Title bar: `Filter tags`, right: `N selected`.
+- Body: every tag in use, deduplicated and sorted case-insensitively, as
+  `[x] work (4)` where the number is how many prompts carry the tag.
+- Buttons: **Back, Clear** (B, L). `l` is underlined because ^C quits.
+- Primary action and Space: toggle the selected tag.
+- **Clear**: uncheck every tag.
+- A prompt passes the filter when it has every checked tag. No checked tags
+  means every prompt passes. The filter is not persisted.
 
-### Settings (Ctrl+S)
+### Settings view
 
 - Title bar: `Settings`.
-- Body: scrollable list of setting names with their current values, formatted
-  `editor: vim`. First selected.
-- Buttons: **Edit, Back**.
-- **Edit (Ctrl+E)** shows the editing control for the selected setting in a
-  pane at the bottom of the screen. The settings list stays visible above.
-  Enter saves to `settings.txt`, Escape cancels.
-- Settings and their controls:
-  - `editor`: single-line text input. Empty value removes the key, which
-    falls back to `$EDITOR`.
-- **Back (Ctrl+B)** and Escape return to list view.
-
-### Leave (Ctrl+L)
-
-- For every completed prompt: delete its index file, its text file, and its
-  line in `sort.txt`.
-- Exit with status 0.
-- Ctrl+C never exits. Terminal close or SIGTERM exits without deleting.
+- Body: one row per setting, `editor: vim`, first selected.
+- Buttons: **Edit, Back** (E, B).
+- Primary action: Edit.
+- **Edit**: an entry labeled with the setting name, pre-filled. Enter saves
+  to `settings.txt`, Escape cancels.
+- Settings: `editor`, a shell command. Empty removes the key.
 
 ## 6. Sort order
 
@@ -170,20 +204,19 @@ Opens a modal for the selected prompt:
   then prompts in `sort.txt` order. IDs in `sort.txt` with no matching prompt
   are ignored and dropped on the next write.
 - Shift+Up / Shift+Down swap the selected prompt with its neighbor in the
-  displayed (filtered) list. The full order of all prompts is then written to
+  displayed (filtered and searched) list. The full order is then written to
   `sort.txt`, with the moved prompt placed immediately before (up) or after
   (down) that neighbor. Every prompt is listed after any write.
 - Moving past either end does nothing.
 
-## 7. Text entry controls
-
-All single-line inputs share behavior:
+## 7. Text entries
 
 - Printable characters insert at the cursor. Left/Right move the cursor.
   Backspace and Delete edit. Home/End jump.
-- Enter commits, Escape cancels. Tab is consumed by the input (used by the
-  tag autocomplete, ignored elsewhere) and does not move button selection.
-- Ctrl+letter shortcuts are disabled while an input has focus.
+- Enter commits, Escape cancels. Tab accepts a completion when one is
+  shown and is otherwise ignored.
+- No other key binding, including ^letter shortcuts, is active while an
+  entry is open, except ^C.
 
 ## 8. IDs
 
@@ -193,24 +226,29 @@ unsorted prompts compares IDs as strings, descending.
 
 ## 9. Editor
 
-Command resolution: `editor` setting, else `$EDITOR`, else `vi`. The value is
-split on whitespace; the first token is the program, the rest are arguments,
-and the text file path is appended. The child inherits the terminal. The
-Ink app is paused while the editor runs.
+Command resolution: `editor` setting, else `$EDITOR`, else `vi`. The value
+is a shell command. It runs as `sh -c '<value> "$@"' sh <file>`, so quoting
+and flags in the value work as they would in a shell. The child inherits
+the terminal.
 
-## 10. Errors at runtime
+## 10. Messages
 
-Write failures (disk full, permissions) show the error message in the
-command pane in red until the next key press. The app keeps running.
+A write failure, a clipboard failure, a reload failure, or a tag
+validation problem shows one red line above the buttons. `Copied` shows in
+green. The message disappears on the next key press.
 
 ## Decisions made without user input
 
 Review these; they were chosen for simplicity.
 
 - Startup treats a directory containing only `.git` as empty.
-- Space is never a button activator. Enter is the only one. In `Filter`, Space toggles the highlighted tag.
-- `Settings` has explicit Edit and Back buttons.
-- Completed items show a `✓ ` prefix.
-- Tag autocomplete accepts with Tab or Right arrow.
+- Up/Down always act on the body even when a button has focus.
+- The body always has focus when a view opens.
+- Selected row colors: white on blue when the body has focus, bold otherwise.
+- Done replaces Complete, with ^D. ^C quits everywhere.
+- Copy's shortcut is ^Y (the underlined `y` in Copy).
+- Reload is a button, not only a key.
+- Mouse wheel moves the selection rather than scrolling the viewport.
+- Wrapped titles stay wrapped (no truncation setting).
+- The minimum terminal size is 40 by 10.
 - ID collisions append `-2`, `-3`.
-- `editor` setting value is split on whitespace for arguments.

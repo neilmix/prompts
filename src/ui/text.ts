@@ -30,21 +30,27 @@ export function wrapText(text: string, width: number): string[] {
   return out;
 }
 
-export interface Block {
+export interface Row {
+  text: string;
+  /** Index of the item this row belongs to. */
   item: number;
-  lines: string[];
-  start: number;
+  /** True for the first row of an item. */
+  first: boolean;
 }
 
-/** Lay out items as wrapped blocks separated by `gap` blank lines. */
-export function layoutBlocks(items: readonly string[], width: number, gap = 1): Block[] {
-  let start = 0;
-  return items.map((text, item) => {
-    const lines = wrapText(text, width);
-    const block = { item, lines, start };
-    start += lines.length + gap;
-    return block;
+export interface Viewport {
+  top: number;
+  total: number;
+  rows: Row[];
+}
+
+/** Lay out items as wrapped rows. */
+export function layoutRows(items: readonly string[], width: number): Row[] {
+  const rows: Row[] = [];
+  items.forEach((text, item) => {
+    wrapText(text, width).forEach((line, i) => rows.push({ text: line, item, first: i === 0 }));
   });
+  return rows;
 }
 
 /** Scroll `top` the minimum needed so [start, end) is inside a `height`-line window. */
@@ -53,4 +59,23 @@ export function scrollToShow(top: number, start: number, end: number, height: nu
   if (start < t) t = start;
   else if (end > t + height) t = end - height;
   return Math.max(0, Math.min(t, Math.max(0, total - height)));
+}
+
+/** Compute the visible rows of a list, keeping `selected` fully in view. */
+export function listViewport(items: readonly string[], selected: number, height: number, width: number, prevTop: number): Viewport {
+  const rows = layoutRows(items, width);
+  const start = rows.findIndex((r) => r.item === selected);
+  let top = 0;
+  if (start >= 0) {
+    let end = start;
+    while (end < rows.length && rows[end]!.item === selected) end++;
+    top = scrollToShow(prevTop, start, end, height, rows.length);
+  } else top = Math.max(0, Math.min(prevTop, rows.length - height));
+  return { top, total: rows.length, rows: rows.slice(top, top + Math.max(0, height)) };
+}
+
+/** `3–9 of 42` when the content overflows, else null. */
+export function rangeLabel(top: number, shown: number, total: number): string | null {
+  if (total <= shown || shown === 0) return null;
+  return `${top + 1}–${Math.min(total, top + shown)} of ${total}`;
 }

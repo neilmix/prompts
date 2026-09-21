@@ -10,6 +10,11 @@ export type Modal =
   | { kind: 'filter' }
   | { kind: 'settings' };
 
+export interface Message {
+  kind: 'error' | 'status';
+  text: string;
+}
+
 export interface State {
   prompts: Map<string, Prompt>;
   sort: string[];
@@ -17,7 +22,9 @@ export interface State {
   selectedId: string | null;
   /** Checked filter tags, in stored spelling. */
   filter: string[];
-  completed: Set<string>;
+  /** Title substring search, case-insensitive. Empty means none. */
+  search: string;
+  done: Set<string>;
   modal: Modal | null;
-  error: string | null;
+  message: Message | null;
 }

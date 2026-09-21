@@ -1,7 +1,7 @@
 # prompts
 
 Terminal app (Node, TypeScript, Ink) that manages AI prompt drafts in a
-`.prompts` directory. Published on npm as `prompts`.
+`.prompts` directory. Published on npm as `@neilmix/prompts`, bin `prompts`.
 
 ## Read first
 
@@ -18,7 +18,7 @@ Terminal app (Node, TypeScript, Ink) that manages AI prompt drafts in a
   `ink-testing-library` tests; startup gets integration tests in `./tmp`.
 - Keep `src/store` and `src/model` free of Ink imports.
 - Tags never contain commas. Tag comparison is case-insensitive.
-- Completed state is in memory only. Deletion happens only on Leave.
+- Done state is in memory only. Deletion happens only on Quit, after confirmation.
 - Every file written to `.prompts` uses the `key: value` syntax from
   file-format.md and ends with a newline.
 - Do not add settings, keys, or commands beyond the spec without asking.

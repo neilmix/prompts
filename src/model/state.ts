@@ -1,9 +1,16 @@
-import type { AppSettings, Modal, Prompt, State } from './types.js';
+import type { AppSettings, Message, Modal, Prompt, State } from './types.js';
 import { tagEq, visibleIds } from './select.js';
+
+export interface StoreSnapshot {
+  prompts: Map<string, Prompt>;
+  sort: string[];
+  settings: AppSettings;
+}
 
 export type Action =
   | { type: 'upsertPrompt'; prompt: Prompt }
   | { type: 'removePrompts'; ids: string[] }
+  | { type: 'replaceStore'; store: StoreSnapshot }
   | { type: 'setSort'; sort: string[] }
   | { type: 'setSettings'; settings: AppSettings }
   | { type: 'select'; id: string }
@@ -12,25 +19,23 @@ export type Action =
   | { type: 'bottom' }
   | { type: 'toggleFilterTag'; tag: string }
   | { type: 'clearFilter' }
-  | { type: 'toggleComplete'; id: string }
+  | { type: 'setSearch'; search: string }
+  | { type: 'toggleDone'; id: string }
   | { type: 'openModal'; modal: Modal }
   | { type: 'closeModal' }
-  | { type: 'setError'; error: string | null };
+  | { type: 'setMessage'; message: Message | null };
 
-export function initialState(init: {
-  prompts: Map<string, Prompt>;
-  sort: string[];
-  settings: AppSettings;
-}): State {
+export function initialState(init: StoreSnapshot): State {
   return normalize({
     prompts: init.prompts,
     sort: init.sort,
     settings: init.settings,
     selectedId: null,
     filter: [],
-    completed: new Set(),
+    search: '',
+    done: new Set(),
     modal: null,
-    error: null,
+    message: null,
   });
 }
 
@@ -47,12 +52,16 @@ function apply(s: State, a: Action): State {
     }
     case 'removePrompts': {
       const prompts = new Map(s.prompts);
-      const completed = new Set(s.completed);
+      const done = new Set(s.done);
       for (const id of a.ids) {
         prompts.delete(id);
-        completed.delete(id);
+        done.delete(id);
       }
-      return { ...s, prompts, completed, sort: s.sort.filter((id) => !a.ids.includes(id)) };
+      return { ...s, prompts, done, sort: s.sort.filter((id) => !a.ids.includes(id)) };
+    }
+    case 'replaceStore': {
+      const done = new Set([...s.done].filter((id) => a.store.prompts.has(id)));
+      return { ...s, prompts: a.store.prompts, sort: a.store.sort, settings: a.store.settings, done };
     }
     case 'setSort':
       return { ...s, sort: a.sort };
@@ -81,18 +90,20 @@ function apply(s: State, a: Action): State {
     }
     case 'clearFilter':
       return { ...s, filter: [] };
-    case 'toggleComplete': {
-      const completed = new Set(s.completed);
-      if (completed.has(a.id)) completed.delete(a.id);
-      else completed.add(a.id);
-      return { ...s, completed };
+    case 'setSearch':
+      return { ...s, search: a.search };
+    case 'toggleDone': {
+      const done = new Set(s.done);
+      if (done.has(a.id)) done.delete(a.id);
+      else done.add(a.id);
+      return { ...s, done };
     }
     case 'openModal':
-      return { ...s, modal: a.modal, error: null };
+      return { ...s, modal: a.modal, message: null };
     case 'closeModal':
       return { ...s, modal: null };
-    case 'setError':
-      return { ...s, error: a.error };
+    case 'setMessage':
+      return { ...s, message: a.message };
   }
 }
 
