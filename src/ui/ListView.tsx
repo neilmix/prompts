@@ -72,8 +72,7 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
         dispatch({ type: 'clearFilter' });
         break;
       case 'char':
-        if (a.text === 'q') actions.requestQuit();
-        else if (a.text === '/') setSearching(true);
+        if (a.text === '/') setSearching(true);
         break;
       case 'mouse': {
         if (a.button === 'wheelUp') dispatch({ type: 'move', by: -1 });
@@ -96,7 +95,7 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
 
   return (
     <Box flexDirection="column" height={size.rows} width={size.columns}>
-      <ListBody rows={view.rows} selected={selectedIndex} focused={commands.focus === 0} height={listHeight} emptyText="no prompts · ^N to create one" header={header} />
+      <ListBody rows={view.rows} selected={selectedIndex} focused={commands.focus === 0} height={listHeight} emptyText="no prompts · n to create one" header={header} />
       <TagPane tags={tags} columns={size.columns} right={rangeLabel(view.top, view.rows.length, view.total)} />
       {searching && (
         <TextInput

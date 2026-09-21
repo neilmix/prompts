@@ -14,3 +14,5 @@
   in Tags starts Add and Delete removes, filter tag counts, vim keys
   (j k g G q), Escape clears search and filter, mouse click and wheel,
   editor runs through `sh -c`, minimum terminal size guard.
+- Button shortcut letters are bare keys (n, o, d, ...) as well as Ctrl+letter.
+  Typing in the Tags view no longer starts Add; press `a`.

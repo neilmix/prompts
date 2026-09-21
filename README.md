@@ -56,16 +56,16 @@ project. See [docs/file-format.md](docs/file-format.md).
 
 ## Commands
 
-| Command | Shortcut | What it does |
+| Command | Key | What it does |
 | --- | --- | --- |
-| New | Ctrl+N | Create a prompt from a title and open it in your editor |
-| Open | Ctrl+O | Read the prompt. From there: Edit, change the Title, Copy to clipboard, or go Back |
-| Done | Ctrl+D | Toggle the prompt as done. Done prompts are deleted on Quit |
-| Tag | Ctrl+T | Add or remove tags on the prompt |
-| Filter | Ctrl+F | Show only prompts that have every selected tag |
-| Settings | Ctrl+S | Change the editor command |
-| Reload | Ctrl+R | Reread `.prompts` from disk |
-| Quit | Ctrl+Q, Ctrl+C | Exit, deleting done prompts after confirmation |
+| New | n | Create a prompt from a title and open it in your editor |
+| Open | o | Read the prompt. From there: Edit, change the Title, Copy to clipboard, or go Back |
+| Done | d | Toggle the prompt as done. Done prompts are deleted on Quit |
+| Tag | t | Add or remove tags on the prompt |
+| Filter | f | Show only prompts that have every selected tag |
+| Settings | s | Change the editor command |
+| Reload | r | Reread `.prompts` from disk |
+| Quit | q, Ctrl+C | Exit, deleting done prompts after confirmation |
 
 ## Editor
 

@@ -37,7 +37,7 @@ const mouse = (button: number, x: number, y: number) => `\x1b[<${button};${x + 1
 describe('list view', () => {
   it('shows a hint when empty', async () => {
     h = await mount();
-    expect(line(0)).toBe('no prompts · ^N to create one');
+    expect(line(0)).toBe('no prompts · n to create one');
   });
 
   it('lists newest first, single spaced, with a gutter marker on the focused selection', async () => {
@@ -127,6 +127,16 @@ describe('focus', () => {
     expect(line(1)).toBe('▸ Beta');
   });
 
+  it('bare shortcut letters work with any focus; uppercase does not', async () => {
+    h = await mount(THREE);
+    await h.press(KEYS.right, KEYS.right, 'd');
+    expect(line(0)).toBe('▸ ✓ Gamma');
+    await h.press('D');
+    expect(line(0)).toBe('▸ ✓ Gamma');
+    await h.press('t');
+    expect(line(0)).toMatch(/^ Tags › Gamma/);
+  });
+
   it('enter on the body opens; enter on a button activates it; space does nothing', async () => {
     h = await mount(THREE);
     await h.press(KEYS.space);
@@ -169,7 +179,7 @@ describe('New', () => {
 describe('Open', () => {
   it('shows breadcrumb, id, text, path and tags', async () => {
     h = await mount(THREE);
-    await h.press(KEYS.down, KEYS.ctrl('o'));
+    await h.press(KEYS.down, 'o');
     expect(line(0)).toBe(` Open › Beta${' '.repeat(12)}${B}`);
     expect(lines().slice(1, 3)).toEqual(['line one', 'line two']);
     expect(line(8)).toBe(`─ .prompts/text/${B}.txt ────`);
@@ -195,7 +205,7 @@ describe('Open', () => {
   it('shows a hint for empty text and Enter on the body edits', async () => {
     h = await mount(THREE, { env: { EDITOR: 'vi' } });
     await h.press(KEYS.ctrl('o'));
-    expect(line(1)).toBe('empty · ^E to edit');
+    expect(line(1)).toBe('empty · e to edit');
     await h.press(KEYS.enter);
     expect(h.edits).toEqual([`vi /w/.prompts/text/${C}.txt`]);
     expect(line(1)).toBe('edited');
@@ -222,12 +232,12 @@ describe('Open', () => {
 
   it('renames via Title and returns with Back, q, or escape', async () => {
     h = await mount(THREE);
-    await h.press(KEYS.ctrl('o'), KEYS.ctrl('t'));
+    await h.press('o', 't');
     expect(line(ROW.input)).toBe('Title: Gamma');
     await h.press(KEYS.backspace, KEYS.backspace, 'y', KEYS.enter);
     expect(line(0)).toMatch(/^ Open › Gamy/);
     expect(h.fs.readFile(`/w/.prompts/index/${C}.txt`)).toBe('title: Gamy\n');
-    await h.press(KEYS.ctrl('b'));
+    await h.press('b');
     expect(line(0)).toBe('▸ Gamy');
     await h.press(KEYS.ctrl('o'), 'q');
     expect(line(0)).toBe('▸ Gamy');
@@ -244,7 +254,7 @@ describe('Open', () => {
 describe('Done and Quit', () => {
   it('toggles the checkbox and marker', async () => {
     h = await mount(THREE);
-    await h.press(KEYS.ctrl('d'));
+    await h.press('d');
     expect(line(0)).toBe('▸ ✓ Gamma');
     expect(line(ROW.buttons)).toContain('[x] Done');
     await h.press(KEYS.ctrl('d'));
@@ -295,7 +305,7 @@ describe('Tag', () => {
     h = await mount(THREE);
     await h.press(KEYS.ctrl('t'));
     expect(line(0)).toBe(` Tags › Gamma           ${C}`);
-    expect(line(1)).toBe('no tags · ^A to add one');
+    expect(line(1)).toBe('no tags · a to add one');
     await h.press(KEYS.ctrl('a'), 'u');
     expect(line(ROW.input)).toBe('Tag: urgent                Tab completes');
     await h.press(KEYS.tab, KEYS.enter);
@@ -303,7 +313,7 @@ describe('Tag', () => {
     expect(h.fs.readFile(`/w/.prompts/index/${C}.txt`)).toBe('title: Gamma\ntags: Urgent\n');
     await h.press(KEYS.enter, 'W', 'O', 'R', 'K', KEYS.enter);
     expect(lines().slice(1, 3)).toEqual(['▸ Urgent', '  work']);
-    await h.press('n', 'e', 'w', KEYS.enter);
+    await h.press('a', 'n', 'e', 'w', KEYS.enter);
     expect(lines().slice(1, 4)).toEqual(['▸ Urgent', '  work', '  new']);
     await h.press(KEYS.down, KEYS.ctrl('r'));
     expect(lines().slice(1, 4)).toEqual(['  Urgent', '▸ new', '']);
@@ -322,10 +332,12 @@ describe('Tag', () => {
     expect(lines().slice(1, 3)).toEqual(['▸ x', '']);
   });
 
-  it('right arrow accepts completion at the end; typing starts Add', async () => {
+  it('right arrow accepts completion at the end; bare letters are shortcuts, not input', async () => {
     h = await mount(THREE);
-    await h.press(KEYS.ctrl('t'), 'w', KEYS.right, KEYS.enter);
+    await h.press('t', 'a', 'w', KEYS.right, KEYS.enter);
     expect(line(1)).toBe('▸ work');
+    await h.press('x');
+    expect(line(ROW.buttons)).toBe('Add  Remove  Back');
   });
 });
 
@@ -342,7 +354,7 @@ describe('Filter', () => {
     expect(lines().slice(0, 3)).toEqual(['Filter: work · 2 of 3', '▸ Beta', '  Alpha']);
     await h.press(KEYS.ctrl('f'), KEYS.enter, KEYS.ctrl('b'));
     expect(lines().slice(0, 2)).toEqual(['Filter: work, Urgent · 1 of 3', '▸ Alpha']);
-    await h.press(KEYS.ctrl('f'), KEYS.ctrl('l'), 'q');
+    await h.press('f', 'l', 'q');
     expect(lines().slice(0, 3)).toEqual(['  Gamma', '  Beta', '▸ Alpha']);
   });
 
@@ -385,7 +397,7 @@ describe('Search', () => {
 describe('Settings', () => {
   it('edits the editor setting', async () => {
     h = await mount(THREE);
-    await h.press(KEYS.ctrl('s'));
+    await h.press('s');
     expect(lines().slice(0, 2)).toEqual([' Settings', '▸ editor:']);
     await h.press(KEYS.enter, 'v', 'i', 'm', KEYS.enter);
     expect(line(1)).toBe('▸ editor: vim');
@@ -403,7 +415,7 @@ describe('Reload', () => {
     await h.press(KEYS.down, KEYS.ctrl('d'));
     h.fs.writeFile(`/w/.prompts/index/${A}.txt`, 'title: Alpha renamed\n');
     h.fs.writeFile('/w/.prompts/index/20260101-000009.txt', 'title: Outside\n');
-    await h.press(KEYS.ctrl('r'));
+    await h.press('r');
     expect(lines().slice(0, 4)).toEqual(['  Outside', '  Gamma', '▸ ✓ Beta', '  Alpha renamed']);
   });
 

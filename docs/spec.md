@@ -5,7 +5,7 @@ derived from it. When behavior changes, change this file in the same commit.
 
 Terms: a **prompt** is one item, made of a title, tags, and a text body. The
 **store** is the `.prompts` directory (see [file-format.md](file-format.md)).
-`^X` means Ctrl+X.
+`^X` means Ctrl+X. A button's shortcut letter works bare or with Ctrl.
 
 ## 1. Startup
 
@@ -41,8 +41,8 @@ Separators are full-width `─` lines. A separator may carry a dim label on
 its left, e.g. `─ tags ────`, and a dim counter on its right, e.g.
 `── 3–9 of 42 ─` when the body above it overflows.
 
-Empty bodies show a gray hint with the next action: `no prompts · ^N to
-create one`, `no tags · ^A to add one`, `empty · ^E to edit`.
+Empty bodies show a gray hint with the next action: `no prompts · n to
+create one`, `no tags · a to add one`, `empty · e to edit`.
 
 ## 3. Focus
 
@@ -56,7 +56,8 @@ a view opens.
   performs the view's primary action (section 5).
 - Up / Down and the other body keys (section 4) act on the body no matter
   which target has focus.
-- ^letter shortcuts work no matter which target has focus.
+- Shortcut letters (bare, or with Ctrl) work no matter which target has
+  focus. They are lowercase; `G` is not a shortcut for `g`.
 - While a text entry is active, it takes every key (section 7).
 
 Display: the focused button is inverse. When the body has focus no button
@@ -78,7 +79,7 @@ entry is active.
 | ^Shift+Up, Home, g | First row / top |
 | ^Shift+Down, End, G | Last row / bottom |
 | Shift+Up / Shift+Down | List view only: move the selected prompt in the sort order (section 6) |
-| q | List view: Quit. Modals: Back |
+| q | List view: Quit (also its button shortcut). Modals: Back |
 | Escape | List view: clear search and tag filter. Modals: Back |
 
 Rows stay visible: the body scrolls the minimum needed to show the whole
@@ -100,30 +101,30 @@ scrolls text) one row.
   not apply are omitted.
 - Tag pane shows the selected prompt's tags.
 - Buttons: **New, Open, Done, Tag, Filter, Settings, Reload, Quit**. Each
-  button's shortcut letter is underlined: N, O, D, T, F, S, R, Q.
+  button's shortcut letter is underlined: n, o, d, t, f, s, r, q.
 - Primary action (Enter on body): Open.
 - `/` opens the search entry (below).
 
-**New (^N)**: title bar `New prompt`, a `Title` entry. Enter with a
+**New (n)**: title bar `New prompt`, a `Title` entry. Enter with a
 non-empty (trimmed) title creates the prompt with a new ID, an index file,
 and an empty text file, places it first in the sort order, selects it,
 then immediately runs the editor on it (as Edit does). On return, the list
 view is shown. Enter with an empty title does nothing. Escape cancels.
 
-**Open (^O)**: see the Open view.
+**Open (o)**: see the Open view.
 
-**Done (^D)**: toggles the selected prompt's done flag, in memory only. The
+**Done (d)**: toggles the selected prompt's done flag, in memory only. The
 button reads `[ ] Done` or `[x] Done` for the selected prompt. Nothing is
 deleted until Quit.
 
-**Tag (^T)**, **Filter (^F)**, **Settings (^S)**: see those views.
+**Tag (t)**, **Filter (f)**, **Settings (s)**: see those views.
 
-**Reload (^R)**: rereads `.prompts` from disk. Selection, filter, search and
+**Reload (r)**: rereads `.prompts` from disk. Selection, filter, search and
 done flags are kept where the IDs still exist. If the reread fails
 validation, the current state is kept and the first problem is shown as an
 error message.
 
-**Quit (^Q, also ^C in every view)**: if no prompt is marked done, exit
+**Quit (q, also ^C in every view)**: if no prompt is marked done, exit
 immediately. Otherwise the input pane asks `Delete N done prompt(s)? (y/n)`.
 `y` deletes each done prompt's index file, text file and sort line, then
 exits. `n` or Escape cancels. After the alternate screen closes, the app
@@ -143,8 +144,8 @@ filter (both must match). Search is not persisted.
 - The separator below the body is labeled with the text file's relative
   path, e.g. `─ .prompts/text/20260921-143005.txt ─`.
 - Tag pane shows the prompt's tags.
-- Buttons: **Edit, Title, Copy, Back**. Shortcuts E, T, Y (Copy's `y` is
-  underlined), B.
+- Buttons: **Edit, Title, Copy, Back**. Shortcuts e, t, y (Copy's `y` is
+  underlined), b.
 - Primary action: Edit.
 - **Edit**: releases the terminal, runs the editor (section 9) on the text
   file, then restores the screen and reloads the text. The editor's exit
@@ -162,7 +163,7 @@ filter (both must match). Search is not persisted.
 
 - Title bar: `Tags › <title>`, right: the prompt ID.
 - Body: the prompt's tags, one per row, first selected.
-- Buttons: **Add, Remove, Back** (A, R, B).
+- Buttons: **Add, Remove, Back** (a, r, b).
 - Primary action: Add.
 - **Add**: `Tag` entry. As the user types, the first tag in use across all
   prompts that starts with the text (case-insensitive) is shown dim after
@@ -171,8 +172,6 @@ filter (both must match). Search is not persisted.
   and contain no comma, and is added unless the prompt already has it
   (case-insensitive). When an existing tag matches case-insensitively, the
   existing spelling is used. Escape cancels.
-- Typing a printable character while no entry is active starts Add with
-  that character already entered.
 - **Remove**, Delete, Backspace: remove the selected tag. No-op when empty.
 - Changes are written to the index file immediately.
 
@@ -181,7 +180,7 @@ filter (both must match). Search is not persisted.
 - Title bar: `Filter tags`, right: `N selected`.
 - Body: every tag in use, deduplicated and sorted case-insensitively, as
   `[x] work (4)` where the number is how many prompts carry the tag.
-- Buttons: **Back, Clear** (B, L). `l` is underlined because ^C quits.
+- Buttons: **Back, Clear** (b, l). `l` is underlined because ^C quits.
 - Primary action and Space: toggle the selected tag.
 - **Clear**: uncheck every tag.
 - A prompt passes the filter when it has every checked tag. No checked tags
@@ -191,7 +190,7 @@ filter (both must match). Search is not persisted.
 
 - Title bar: `Settings`.
 - Body: one row per setting, `editor: vim`, first selected.
-- Buttons: **Edit, Back** (E, B).
+- Buttons: **Edit, Back** (e, b).
 - Primary action: Edit.
 - **Edit**: an entry labeled with the setting name, pre-filled. Enter saves
   to `settings.txt`, Escape cancels.
@@ -215,7 +214,7 @@ filter (both must match). Search is not persisted.
   Backspace and Delete edit. Home/End jump.
 - Enter commits, Escape cancels. Tab accepts a completion when one is
   shown and is otherwise ignored.
-- No other key binding, including ^letter shortcuts, is active while an
+- No other key binding, including shortcut letters, is active while an
   entry is open, except ^C.
 
 ## 8. IDs
@@ -245,7 +244,8 @@ Review these; they were chosen for simplicity.
 - Up/Down always act on the body even when a button has focus.
 - The body always has focus when a view opens.
 - Selected row colors: white on blue when the body has focus, bold otherwise.
-- Done replaces Complete, with ^D. ^C quits everywhere.
+- Done replaces Complete. ^C quits everywhere.
+- Shortcut letters are bare keys; Ctrl+letter still works.
 - Copy's shortcut is ^Y (the underlined `y` in Copy).
 - Reload is a button, not only a key.
 - Mouse wheel moves the selection rather than scrolling the viewport.

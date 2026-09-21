@@ -68,7 +68,7 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
       <TitleBar title={`Open › ${prompt.title}`} right={id} columns={size.columns} />
       <Box flexDirection="column" height={bodyHeight} overflow="hidden">
         {text === '' ? (
-          <Text color="gray">empty · ^E to edit</Text>
+          <Text color="gray">empty · e to edit</Text>
         ) : (
           shown.map((l, i) => (
             <Text key={shownTop + i} wrap="truncate">
