@@ -7,13 +7,15 @@ export interface ListBodyProps {
   rows: Row[];
   selected: number;
   focused: boolean;
+  /** The selected item is being moved: `↕` gutter, magenta row. */
+  moving?: boolean;
   height: number;
   emptyText: string;
   header?: string | undefined;
 }
 
 /** Renders pre-laid-out rows with a gutter marker on the selected item. */
-export function ListBody({ rows, selected, focused, height, emptyText, header }: ListBodyProps) {
+export function ListBody({ rows, selected, focused, moving = false, height, emptyText, header }: ListBodyProps) {
   return (
     <Box flexDirection="column" height={height} overflow="hidden">
       {header !== undefined && (
@@ -26,17 +28,30 @@ export function ListBody({ rows, selected, focused, height, emptyText, header }:
       ) : (
         rows.map((r, i) => {
           const sel = r.item === selected;
-          const gutter = sel && r.first ? '▸ ' : '  ';
+          const gutter = sel && r.first ? (moving ? '↕ ' : '▸ ') : '  ';
           const text = r.text || ' ';
+          const body =
+            r.tail === undefined ? (
+              text
+            ) : (
+              <>
+                {text.slice(0, r.tail)}
+                <Text color="cyan">{text.slice(r.tail)}</Text>
+              </>
+            );
           return (
             <Text key={i} wrap="truncate">
-              {sel ? <Text color="blue">{gutter}</Text> : gutter}
-              {!sel ? text : focused ? (
+              {sel ? <Text color={moving ? 'magenta' : 'blue'}>{gutter}</Text> : gutter}
+              {!sel ? body : moving ? (
+                <Text bold color="white" backgroundColor="magenta">
+                  {body}
+                </Text>
+              ) : focused ? (
                 <Text bold color="white" backgroundColor="blue">
-                  {text}
+                  {body}
                 </Text>
               ) : (
-                <Text bold>{text}</Text>
+                <Text bold>{body}</Text>
               )}
             </Text>
           );

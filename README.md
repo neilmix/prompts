@@ -29,12 +29,10 @@ project. See [docs/file-format.md](docs/file-format.md).
 
 ```
 ┌ list pane ─────────────────────────────┐
-│ ▸ Refactor the auth middleware         │
-│   Write release notes for 2.3          │
+│ ▸ • Refactor the auth middleware [backend] [auth]
+│   • Write release notes for 2.3 [docs] │
 │                                        │
-├ tag pane ──────────────────────────────┤
-│ [backend] [auth]                       │
-├ command pane ──────────────────────────┤
+├ command pane ─── press space to reorder ┤
 │ New  Open  Copy  Done  Tag  Filter  Settings  Reload  Quit
 └────────────────────────────────────────┘
 ```
@@ -43,15 +41,17 @@ project. See [docs/file-format.md](docs/file-format.md).
 
 | Key | Action |
 | --- | --- |
-| Up / Down | Select previous / next prompt |
-| Ctrl+Up / Ctrl+Down | Scroll a page |
-| Ctrl+Shift+Up / Home | Jump to top |
-| Ctrl+Shift+Down / End | Jump to bottom |
-| Shift+Up / Shift+Down | Move the selected prompt up / down in the sort order |
+| Up / Down (or k / j) | Select previous / next prompt |
+| PageUp / PageDown | Scroll a page |
+| Home / End (or g / G) | Jump to top / bottom |
+| Space | Enter or leave move mode: the same keys then move the selected prompt in the sort order instead of the selection |
 | Tab | Select the next command button |
 | Enter | Activate the selected button |
 | letter | Activate the button whose underlined letter it is |
-| Escape | Close the current modal |
+| Escape | Close the current modal, or leave move mode |
+
+On a Mac keyboard without PageUp, PageDown, Home and End keys, macOS sends
+them for Fn+Up, Fn+Down, Fn+Left and Fn+Right.
 
 ## Commands
 

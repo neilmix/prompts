@@ -78,8 +78,10 @@ export function TagModal({ state, dispatch, actions, size, overlay, id, from }: 
               return;
             }
             const tag = canonicalTag(v.trim(), existing);
-            if (!prompt.tags.some((t) => tagEq(t, tag))) actions.setTags(id, [...prompt.tags, tag]);
-            back();
+            const at = prompt.tags.findIndex((t) => tagEq(t, tag));
+            if (at < 0) actions.setTags(id, [...prompt.tags, tag]);
+            setSelected(at < 0 ? prompt.tags.length : at);
+            setAdding(false);
           }}
           onCancel={() => setAdding(false)}
         />

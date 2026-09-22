@@ -6,10 +6,9 @@ import { TextInput, TEXT_INPUT_HEIGHT } from './controls/TextInput.js';
 import { selectedPrompt, type ViewProps } from './context.js';
 import { buttonSpans, useCommands } from './hooks/useCommands.js';
 import { useKeyActions } from './hooks/useKeyActions.js';
-import { vimAction } from './keys.js';
+import { vimAction, type KeyAction } from './keys.js';
 import { CommandPane, commandPaneHeight } from './panes/CommandPane.js';
-import { TagPane, tagPaneLines } from './panes/TagPane.js';
-import { listViewport, rangeLabel } from './text.js';
+import { chips, listViewport, rangeLabel } from './text.js';
 
 export function listHeader(state: { search: string; filter: string[] }, shown: number, total: number): string | undefined {
   const parts: string[] = [];
@@ -27,18 +26,20 @@ export const doneLabel = (done: boolean): string => (done ? '✓ Done' : 'Done')
 
 export function ListView({ state, dispatch, actions, size, overlay }: ViewProps) {
   const [searching, setSearching] = useState(false);
+  const [moving, setMoving] = useState(false);
   const topRef = useRef(0);
   const ids = visibleIds(state);
   const selected = selectedPrompt(state);
   const selectedIndex = selected ? ids.indexOf(selected.id) : -1;
-  const tags = selected?.tags ?? [];
-  const tagLines = tagPaneLines(tags, size.columns);
   const header = listHeader(state, ids.length, state.prompts.size);
   const bottom = overlay ? overlay.height : searching ? TEXT_INPUT_HEIGHT : 0;
-  const listHeight = Math.max(0, size.rows - 1 - tagLines.length - commandPaneHeight(state.message) - bottom);
+  const listHeight = Math.max(0, size.rows - commandPaneHeight(state.message) - bottom);
   const bodyHeight = Math.max(0, listHeight - (header === undefined ? 0 : 1));
 
-  const items = ids.map((id) => (state.done.has(id) ? '✓ ' : '') + state.prompts.get(id)!.title);
+  const items = ids.map((id) => {
+    const p = state.prompts.get(id)!;
+    return { text: (state.done.has(id) ? '✓ ' : '') + p.title, tail: chips(p.tags) };
+  });
   const view = listViewport(items, selectedIndex, bodyHeight, size.columns - GUTTER, topRef.current, BULLET);
   topRef.current = view.top;
 
@@ -61,18 +62,38 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
     open,
   );
 
+  const page = Math.max(1, bodyHeight);
+
+  // Move mode: Space toggles; the body keys move the selected prompt in
+  // the sort order instead of moving the selection. Everything else is
+  // ignored until Space or Escape leaves the mode.
+  const handleMoving = (raw: NonNullable<KeyAction>) => {
+    const a = vimAction(raw) ?? raw;
+    switch (a.type) {
+      case 'up': actions.move(-1); break;
+      case 'down': actions.move(1); break;
+      case 'pageUp': actions.move(-page); break;
+      case 'pageDown': actions.move(page); break;
+      case 'top': case 'home': actions.move(-ids.length); break;
+      case 'bottom': case 'end': actions.move(ids.length); break;
+      case 'space': case 'escape': setMoving(false); break;
+    }
+  };
+
   useKeyActions((raw) => {
+    if (moving) return handleMoving(raw);
     if (commands.handle(raw)) return;
     const a = vimAction(raw) ?? raw;
     switch (a.type) {
       case 'up': dispatch({ type: 'move', by: -1 }); break;
       case 'down': dispatch({ type: 'move', by: 1 }); break;
-      case 'pageUp': dispatch({ type: 'move', by: -Math.max(1, bodyHeight) }); break;
-      case 'pageDown': dispatch({ type: 'move', by: Math.max(1, bodyHeight) }); break;
+      case 'pageUp': dispatch({ type: 'move', by: -page }); break;
+      case 'pageDown': dispatch({ type: 'move', by: page }); break;
       case 'top': case 'home': dispatch({ type: 'top' }); break;
       case 'bottom': case 'end': dispatch({ type: 'bottom' }); break;
-      case 'moveUp': actions.move('up'); break;
-      case 'moveDown': actions.move('down'); break;
+      case 'space':
+        if (selected) setMoving(true);
+        break;
       case 'escape':
         dispatch({ type: 'setSearch', search: '' });
         dispatch({ type: 'clearFilter' });
@@ -101,8 +122,7 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
 
   return (
     <Box flexDirection="column" height={size.rows} width={size.columns}>
-      <ListBody rows={view.rows} selected={selectedIndex} focused={commands.focus === 0} height={listHeight} emptyText="no prompts · n to create one" header={header} />
-      <TagPane tags={tags} columns={size.columns} right={rangeLabel(view.top, view.rows.length, view.total)} />
+      <ListBody rows={view.rows} selected={selectedIndex} focused={commands.focus === 0} moving={moving} height={listHeight} emptyText="no prompts · n to create one" header={header} />
       {searching && (
         <TextInput
           columns={size.columns}
@@ -117,7 +137,14 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
         />
       )}
       {overlay?.node}
-      <CommandPane buttons={commands.buttons} focus={commands.focus} message={state.message} columns={size.columns} />
+      <CommandPane
+        buttons={commands.buttons}
+        focus={commands.focus}
+        message={state.message}
+        columns={size.columns}
+        hint={selected === null ? null : moving ? 'moving · press space when done' : 'press space to reorder'}
+        right={rangeLabel(view.top, view.rows.length, view.total)}
+      />
     </Box>
   );
 }

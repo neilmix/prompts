@@ -6,10 +6,10 @@ import { buttonSpans, useCommands } from '../hooks/useCommands.js';
 import { useKeyActions } from '../hooks/useKeyActions.js';
 import { vimAction } from '../keys.js';
 import { CommandPane, commandPaneHeight } from '../panes/CommandPane.js';
-import { TagPane, tagPaneLines } from '../panes/TagPane.js';
+import { Separator } from '../panes/Separator.js';
 import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
 import { doneLabel } from '../ListView.js';
-import { rangeLabel, wrapText } from '../text.js';
+import { chips, rangeLabel, wrapText } from '../text.js';
 
 export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewProps & { id: string }) {
   const { suspendTerminal } = useApp();
@@ -18,9 +18,8 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
   const [top, setTop] = useState(0);
   const [editingTitle, setEditingTitle] = useState(false);
 
-  const tagLines = tagPaneLines(prompt.tags, size.columns);
   const bottom = overlay ? overlay.height : editingTitle ? TEXT_INPUT_HEIGHT : 0;
-  const bodyHeight = Math.max(0, size.rows - TITLE_BAR_HEIGHT - 1 - tagLines.length - commandPaneHeight(state.message) - bottom);
+  const bodyHeight = Math.max(0, size.rows - TITLE_BAR_HEIGHT - 1 - commandPaneHeight(state.message) - bottom);
   const lines = wrapText(text.replace(/\r?\n$/, ''), size.columns);
   const maxTop = Math.max(0, lines.length - bodyHeight);
   const shownTop = Math.min(top, maxTop);
@@ -68,7 +67,7 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
   const shown = lines.slice(shownTop, shownTop + bodyHeight);
   return (
     <Box flexDirection="column" height={size.rows} width={size.columns}>
-      <TitleBar title={`Open › ${prompt.title}`} right={id} columns={size.columns} />
+      <TitleBar title={`Open › ${prompt.title}`} tail={chips(prompt.tags)} right={id} columns={size.columns} />
       <Box flexDirection="column" height={bodyHeight} overflow="hidden">
         {text === '' ? (
           <Text color="gray">empty · e to edit</Text>
@@ -80,7 +79,7 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
           ))
         )}
       </Box>
-      <TagPane tags={prompt.tags} columns={size.columns} label={actions.textPath(id)} right={rangeLabel(shownTop, shown.length, lines.length)} />
+      <Separator columns={size.columns} label={actions.textPath(id)} right={rangeLabel(shownTop, shown.length, lines.length)} />
       {editingTitle && (
         <TextInput
           columns={size.columns}

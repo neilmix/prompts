@@ -42,12 +42,11 @@ src/
     keys.ts           toAction: Ink (input, key) → named action, incl. mouse;
                       vimAction: j/k/g/G mapping
     text.ts           wrapText, listViewport (scroll to keep selection),
-                      rangeLabel
+                      rows with a styled tail (tag chips), chips, rangeLabel
     panes/
       TitleBar.tsx    inverse bar: `View › Title` left, detail right
-      TagPane.tsx     separator + tag chips
       CommandPane.tsx separator, message line, underlined-shortcut buttons
-      Separator.tsx   `─` rule with optional label and counter
+      Separator.tsx   `─` rule with optional label, centered text and counter
     modals/
       NewModal.tsx    title entry, then editor
       OpenModal.tsx   text pane, Edit/Retitle/Tag/Copy/Done/Back
@@ -90,8 +89,8 @@ A single reducer in `model/state.ts` owns:
   from list or Open) carries a `from` field and reopens the parent on Back.
 - `message`: transient error or status for the command pane
 
-Per-view state (focus, scroll top, open entries) lives in the view
-component and resets when the view mounts.
+Per-view state (focus, scroll top, open entries, the list view's move
+mode) lives in the view component and resets when the view mounts.
 
 Side effects (writes, spawning the editor) happen in `App.tsx` handlers that
 call the store, then dispatch the resulting change. The reducer never
@@ -100,9 +99,11 @@ touches the filesystem.
 ## Key handling
 
 Ink's `useInput` delivers `(input, key)`. `toAction` in `ui/keys.ts` maps
-that to one named action (`up`, `pageDown`, `moveUp`, `char`,
-`mouse`, ...) so components never inspect raw key flags. Terminal support
-for Ctrl+Shift+arrows varies; Home and End are the reliable alternates.
+that to one named action (`up`, `pageDown`, `space`, `char`, `mouse`, ...)
+so components never inspect raw key flags. Modifiers on arrow keys are
+dropped on purpose: terminals disagree on sending them (Terminal.app sends
+none by default), so every binding uses a plain key. Reordering is a mode
+(Space) in `ListView` rather than a chord.
 
 Each view calls `useCommands` for the focus model and `useKeyActions` for
 its body keys. A view's handler is inactive while one of its text entries

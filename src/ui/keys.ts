@@ -9,8 +9,6 @@ export type KeyAction =
   | { type: 'pageDown' }
   | { type: 'top' }
   | { type: 'bottom' }
-  | { type: 'moveUp' }
-  | { type: 'moveDown' }
   | { type: 'home' }
   | { type: 'end' }
   | { type: 'tab' }
@@ -29,13 +27,10 @@ const MOUSE_RE = /^\[<(\d+);(\d+);(\d+)([mM])$/;
 
 /** Normalize Ink's (input, key) into one named action. */
 export function toAction(input: string, key: Key): KeyAction {
-  if (key.upArrow || key.downArrow) {
-    const up = key.upArrow;
-    if (key.ctrl && key.shift) return { type: up ? 'top' : 'bottom' };
-    if (key.ctrl) return { type: up ? 'pageUp' : 'pageDown' };
-    if (key.shift) return { type: up ? 'moveUp' : 'moveDown' };
-    return { type: up ? 'up' : 'down' };
-  }
+  // Modifiers on arrows are ignored: terminals disagree on whether they
+  // send them at all (Terminal.app sends none by default).
+  if (key.upArrow) return { type: 'up' };
+  if (key.downArrow) return { type: 'down' };
   if (key.pageUp) return { type: 'pageUp' };
   if (key.pageDown) return { type: 'pageDown' };
   if (key.leftArrow) return { type: 'left' };

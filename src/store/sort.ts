@@ -34,23 +34,24 @@ export function displayOrder(ids: Iterable<string>, sort: readonly string[]): st
 }
 
 /**
- * Move `id` one step in `visible`. Returns the new full order, or null when
- * there is nowhere to go. `full` must be a complete display order.
+ * Move `id` by `by` steps (negative = up) within `visible`, stopping at the
+ * ends. Returns the new full order, or null when nothing moves. `full` must
+ * be a complete display order.
  */
 export function moveInOrder(
   full: readonly string[],
   visible: readonly string[],
   id: string,
-  dir: 'up' | 'down',
+  by: number,
 ): string[] | null {
   const vi = visible.indexOf(id);
   if (vi < 0) return null;
-  const ni = dir === 'up' ? vi - 1 : vi + 1;
-  const neighbor = visible[ni];
-  if (neighbor === undefined) return null;
+  const ni = Math.min(visible.length - 1, Math.max(0, vi + by));
+  if (ni === vi) return null;
+  const neighbor = visible[ni]!;
   const without = full.filter((x) => x !== id);
   const at = without.indexOf(neighbor);
   if (at < 0) return null;
-  without.splice(dir === 'up' ? at : at + 1, 0, id);
+  without.splice(ni < vi ? at : at + 1, 0, id);
   return without;
 }

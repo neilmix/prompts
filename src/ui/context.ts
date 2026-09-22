@@ -10,7 +10,8 @@ export interface Actions {
   create(title: string): string | null;
   rename(id: string, title: string): void;
   setTags(id: string, tags: string[]): void;
-  move(dir: 'up' | 'down'): void;
+  /** Move the selected prompt `by` steps in the displayed order (negative = up). */
+  move(by: number): void;
   saveSettings(settings: AppSettings): void;
   readText(id: string): string;
   textPath(id: string): string;

@@ -14,8 +14,8 @@ const THREE = {
 };
 
 // Default harness size is 12 rows by 40 columns.
-// List view rows: 0-7 list, 8 tags separator, 9 tags, 10 separator, 11 buttons.
-const ROW = { tags: 9, buttons: 11, message: 10, input: 9 } as const;
+// List view rows: 0-9 list, 10 separator (hint, counter), 11 buttons.
+const ROW = { buttons: 11, message: 10, input: 9 } as const;
 
 let h: Harness;
 afterEach(() => h?.unmount());
@@ -25,6 +25,11 @@ const line = (n: number) => lines()[n] ?? '';
 /** Text drawn on a blue background (the focused body selection). */
 const focusedRow = () => {
   const m = /\x1b\[44m(.*?)\x1b\[49m/.exec(h.frame());
+  return m ? plain(m[1]!) : null;
+};
+/** Text drawn on a magenta background (the item being moved). */
+const movingRow = () => {
+  const m = /\x1b\[45m(.*?)\x1b\[49m/.exec(h.frame());
   return m ? plain(m[1]!) : null;
 };
 /** Text drawn inverse, excluding the title bar (the focused button). */
@@ -38,11 +43,23 @@ describe('list view', () => {
   it('shows a hint when empty', async () => {
     h = await mount();
     expect(line(0)).toBe('no prompts · n to create one');
+    expect(line(ROW.message)).toMatch(/^─+$/);
+  });
+
+  it('centers a reorder hint on the separator above the buttons, changing in move mode', async () => {
+    h = await mount(THREE);
+    expect(line(ROW.message)).toBe('──────── press space to reorder ────────');
+    await h.press(KEYS.space);
+    expect(line(ROW.message)).toBe('──── moving · press space when done ────');
+    await h.press(KEYS.escape);
+    expect(line(ROW.message)).toBe('──────── press space to reorder ────────');
+    await h.press('t');
+    expect(line(ROW.message)).toMatch(/^─+$/);
   });
 
   it('lists newest first, single spaced, with a gutter marker on the focused selection', async () => {
     h = await mount(THREE);
-    expect(lines().slice(0, 3)).toEqual(['▸ • Gamma', '  • Beta', '  • Alpha']);
+    expect(lines().slice(0, 3)).toEqual(['▸ • Gamma', '  • Beta [work]', '  • Alpha [work] [Urgent]']);
     expect(focusedRow()).toBe('• Gamma');
     expect(focusedButton()).toBeNull();
     expect(line(ROW.buttons)).toBe('New  Open  Copy  Done  Tag  Filter  Sett');
@@ -50,28 +67,27 @@ describe('list view', () => {
 
   it('honors sort.txt with unlisted items first', async () => {
     h = await mount({ ...THREE, 'sort.txt': `${A}\n${C}\n` });
-    expect(lines().slice(0, 3)).toEqual(['▸ • Beta', '  • Alpha', '  • Gamma']);
+    expect(lines().slice(0, 3)).toEqual(['▸ • Beta [work]', '  • Alpha [work] [Urgent]', '  • Gamma']);
   });
 
   it('moves selection with arrows, vim keys, paging, home/end', async () => {
     h = await mount(THREE);
     await h.press(KEYS.down);
-    expect(focusedRow()).toBe('• Beta');
-    expect(line(ROW.tags)).toBe('[work]');
+    expect(focusedRow()).toBe('• Beta [work]');
     await h.press('j', 'j');
-    expect(focusedRow()).toBe('• Alpha');
+    expect(focusedRow()).toBe('• Alpha [work] [Urgent]');
     await h.press('k');
-    expect(focusedRow()).toBe('• Beta');
-    await h.press(KEYS.ctrlShiftUp);
+    expect(focusedRow()).toBe('• Beta [work]');
+    await h.press(KEYS.home);
     expect(focusedRow()).toBe('• Gamma');
     await h.press(KEYS.end);
-    expect(focusedRow()).toBe('• Alpha');
+    expect(focusedRow()).toBe('• Alpha [work] [Urgent]');
     await h.press('g');
     expect(focusedRow()).toBe('• Gamma');
     await h.press('G');
-    expect(focusedRow()).toBe('• Alpha');
-    await h.press(KEYS.home, KEYS.ctrlDown);
-    expect(focusedRow()).toBe('• Alpha');
+    expect(focusedRow()).toBe('• Alpha [work] [Urgent]');
+    await h.press(KEYS.home, KEYS.pageDown);
+    expect(focusedRow()).toBe('• Alpha [work] [Urgent]');
     await h.press(KEYS.pageUp);
     expect(focusedRow()).toBe('• Gamma');
   });
@@ -82,21 +98,72 @@ describe('list view', () => {
     for (let i = 1; i <= 6; i++) files[`index/20260101-00000${i}.txt`] = `title: Item ${i} has a long title that wraps around\n`;
     h = await mount(files, { rows: 10 });
     expect(lines().slice(0, 4)).toEqual(['▸ • Item 6 has a long title that wraps', '    around', '  • Item 5 has a long title that wraps', '    around']);
-    expect(line(6)).toBe('─ tags ───────────────────── 1–6 of 12 ─');
+    expect(line(8)).toBe('── press space to reorder ── 1–8 of 12 ─');
     await h.press(KEYS.end);
-    expect(lines().slice(0, 2)).toEqual(['  • Item 3 has a long title that wraps', '    around']);
-    expect(line(6)).toBe('─ tags ──────────────────── 7–12 of 12 ─');
+    expect(lines().slice(0, 2)).toEqual(['  • Item 4 has a long title that wraps', '    around']);
+    expect(line(8)).toBe('─ press space to reorder ── 5–12 of 12 ─');
   });
 
-  it('reorders with shift+arrows and writes sort.txt', async () => {
+  it('draws tags after the title in cyan, wrapping with the title', async () => {
+    h = await mount({ [`index/${A}.txt`]: 'title: A title that is fairly long\ntags: alpha, beta, gamma\n' });
+    expect(lines().slice(0, 2)).toEqual(['▸ • A title that is fairly long [alpha]', '    [beta] [gamma]']);
+    expect(h.frame()).toContain('\x1b[36m[alpha]');
+    expect(h.frame()).toContain('\x1b[36m[beta] [gamma]');
+  });
+
+  it('space enters move mode: arrows reorder and write sort.txt; space leaves it', async () => {
     h = await mount(THREE);
-    await h.press(KEYS.shiftDown);
-    expect(lines().slice(0, 3)).toEqual(['  • Beta', '▸ • Gamma', '  • Alpha']);
+    await h.press(KEYS.space);
+    expect(lines()[0]).toBe('↕ • Gamma');
+    expect(movingRow()).toBe('• Gamma');
+    await h.press(KEYS.down);
+    expect(lines().slice(0, 3)).toEqual(['  • Beta [work]', '↕ • Gamma', '  • Alpha [work] [Urgent]']);
     expect(h.fs.readFile('/w/.prompts/sort.txt')).toBe(`${B}\n${C}\n${A}\n`);
-    await h.press(KEYS.shiftDown, KEYS.shiftDown);
-    expect(lines().slice(0, 3)).toEqual(['  • Beta', '  • Alpha', '▸ • Gamma']);
-    await h.press(KEYS.shiftUp, KEYS.shiftUp);
+    await h.press(KEYS.down, KEYS.down);
+    expect(lines().slice(0, 3)).toEqual(['  • Beta [work]', '  • Alpha [work] [Urgent]', '↕ • Gamma']);
+    await h.press('k', 'k');
     expect(h.fs.readFile('/w/.prompts/sort.txt')).toBe(`${C}\n${B}\n${A}\n`);
+    await h.press(KEYS.space);
+    expect(lines()[0]).toBe('▸ • Gamma');
+    expect(movingRow()).toBeNull();
+    expect(focusedRow()).toBe('• Gamma');
+    await h.press(KEYS.down);
+    expect(focusedRow()).toBe('• Beta [work]');
+    expect(h.fs.readFile('/w/.prompts/sort.txt')).toBe(`${C}\n${B}\n${A}\n`);
+  });
+
+  it('move mode: paging, home/end and g/G move the item; Escape leaves', async () => {
+    const files: Record<string, string> = {};
+    for (let i = 1; i <= 6; i++) files[`index/20260101-00000${i}.txt`] = `title: Item ${i}\n`;
+    h = await mount(files, { rows: 12 });
+    // 8 body rows, 6 items: a page is 8 and clamps at the ends.
+    await h.press(KEYS.space, KEYS.end);
+    expect(lines().slice(0, 6).map((l) => l.slice(0, 1))).toEqual([' ', ' ', ' ', ' ', ' ', '↕']);
+    expect(lines()[5]).toBe('↕ • Item 6');
+    await h.press(KEYS.home);
+    expect(lines()[0]).toBe('↕ • Item 6');
+    await h.press(KEYS.pageDown);
+    expect(lines()[5]).toBe('↕ • Item 6');
+    await h.press(KEYS.pageUp);
+    expect(lines()[0]).toBe('↕ • Item 6');
+    await h.press('G');
+    expect(lines()[5]).toBe('↕ • Item 6');
+    await h.press('g');
+    expect(lines()[0]).toBe('↕ • Item 6');
+    expect(h.fs.readFile('/w/.prompts/sort.txt')).toBe(
+      ['20260101-000006', '20260101-000005', '20260101-000004', '20260101-000003', '20260101-000002', '20260101-000001'].map((id) => `${id}\n`).join(''),
+    );
+    await h.press(KEYS.escape);
+    expect(lines()[0]).toBe('▸ • Item 6');
+    // Escape left move mode without clearing anything else; a second Escape is the normal one.
+  });
+
+  it('move mode ignores shortcut letters, Enter and focus keys', async () => {
+    h = await mount(THREE);
+    await h.press(KEYS.space, 'o', KEYS.enter, KEYS.tab, KEYS.right, 'q');
+    expect(lines()[0]).toBe('↕ • Gamma');
+    expect(focusedButton()).toBeNull();
+    expect(line(ROW.buttons)).toContain('New');
   });
 });
 
@@ -124,7 +191,7 @@ describe('focus', () => {
     h = await mount(THREE);
     await h.press(KEYS.right, KEYS.down);
     expect(focusedButton()).toBe('New');
-    expect(line(1)).toBe('▸ • Beta');
+    expect(line(1)).toBe('▸ • Beta [work]');
   });
 
   it('ctrl+letter is not a shortcut', async () => {
@@ -145,13 +212,13 @@ describe('focus', () => {
     expect(line(0)).toMatch(/^ Tags › Gamma/);
   });
 
-  it('enter on the body opens; enter on a button activates it; space does nothing', async () => {
+  it('enter on the body opens; enter on a button activates it; space never activates a button', async () => {
     h = await mount(THREE);
-    await h.press(KEYS.space);
-    expect(line(0)).toBe('▸ • Gamma');
     await h.press(KEYS.enter);
     expect(line(0)).toMatch(/^ Open › Gamma/);
-    await h.press(KEYS.escape, KEYS.right, KEYS.enter);
+    await h.press(KEYS.escape, KEYS.right, KEYS.space);
+    expect(line(0)).toBe('↕ • Gamma');
+    await h.press(KEYS.space, KEYS.enter);
     expect(line(0)).toBe(' New prompt');
   });
 });
@@ -188,26 +255,25 @@ describe('Open', () => {
   it('shows breadcrumb, id, text, path and tags', async () => {
     h = await mount(THREE);
     await h.press(KEYS.down, 'o');
-    expect(line(0)).toBe(` Open › Beta${' '.repeat(12)}${B}`);
+    expect(line(0)).toBe(` Open › Beta [work]${' '.repeat(5)}${B}`);
     expect(lines().slice(1, 3)).toEqual(['line one', 'line two']);
-    expect(line(8)).toBe(`─ .prompts/text/${B}.txt ────`);
-    expect(line(9)).toBe('[work]');
+    expect(line(9)).toBe(`─ .prompts/text/${B}.txt ────`);
     expect(line(11)).toBe('Edit  Retitle  Tag  Copy  Done  Back');
   });
 
   it('scrolls with arrows and vim keys and shows a range counter', async () => {
-    h = await mount({ ...THREE, [`text/${B}.txt`]: 'a\nb\nc\nd\ne\nf\n' }, { rows: 10 });
+    h = await mount({ ...THREE, [`text/${B}.txt`]: 'a\nb\nc\nd\ne\nf\ng\nh\n' }, { rows: 10 });
     await h.press(KEYS.down, 'o');
-    expect(lines().slice(1, 6)).toEqual(['a', 'b', 'c', 'd', 'e']);
-    expect(line(6)).toBe('─ .prompts/text/20260101-0… ─ 1–5 of 6 ─');
+    expect(lines().slice(1, 7)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
+    expect(line(7)).toBe('─ .prompts/text/20260101-0… ─ 1–6 of 8 ─');
     await h.press('j');
-    expect(lines().slice(1, 6)).toEqual(['b', 'c', 'd', 'e', 'f']);
+    expect(lines().slice(1, 7)).toEqual(['b', 'c', 'd', 'e', 'f', 'g']);
     await h.press('j');
-    expect(lines().slice(1, 6)).toEqual(['b', 'c', 'd', 'e', 'f']);
+    expect(lines().slice(1, 7)).toEqual(['c', 'd', 'e', 'f', 'g', 'h']);
     await h.press('g');
     expect(line(1)).toBe('a');
     await h.press(KEYS.end);
-    expect(line(5)).toBe('f');
+    expect(line(6)).toBe('h');
   });
 
   it('shows a hint for empty text and Enter on the body edits', async () => {
@@ -269,14 +335,16 @@ describe('Open', () => {
     expect(line(ROW.buttons)).toBe('Edit  Retitle  Tag  Copy  Done  Back');
   });
 
-  it('Tag opens the Tag view and returns to the Open view on commit or Back', async () => {
+  it('Tag opens the Tag view; commit stays there, Back returns to the Open view', async () => {
     h = await mount(THREE);
     await h.press('o', 't');
     expect(line(0)).toBe(` Tags › Gamma           ${C}`);
     expect(line(ROW.input)).toBe('Tag:');
     await h.press('n', 'e', 'w', KEYS.enter);
-    expect(line(0)).toMatch(/^ Open › Gamma/);
-    expect(line(9)).toBe('[new]');
+    expect(line(0)).toBe(` Tags › Gamma           ${C}`);
+    expect(line(1)).toBe('▸ new');
+    await h.press('b');
+    expect(line(0)).toMatch(/^ Open › Gamma \[new\]/);
     expect(h.fs.readFile(`/w/.prompts/index/${C}.txt`)).toBe('title: Gamma\ntags: new\n');
     await h.press('t', KEYS.escape, KEYS.escape);
     expect(line(0)).toMatch(/^ Open › Gamma/);
@@ -285,7 +353,7 @@ describe('Open', () => {
     await h.press('t', KEYS.escape, 'q');
     expect(line(0)).toMatch(/^ Open › Gamma/);
     await h.press('b');
-    expect(line(0)).toBe('▸ • Gamma');
+    expect(line(0)).toBe('▸ • Gamma [new]');
   });
 });
 
@@ -348,7 +416,7 @@ describe('Done and Quit', () => {
 });
 
 describe('Tag', () => {
-  it('opens in add mode; committing a tag saves and returns to the list view', async () => {
+  it('opens in add mode; committing a tag saves, closes the entry and selects the new tag', async () => {
     h = await mount(THREE);
     await h.press('t');
     expect(line(0)).toBe(` Tags › Gamma           ${C}`);
@@ -356,9 +424,14 @@ describe('Tag', () => {
     await h.press('u');
     expect(line(ROW.input)).toBe('Tag: urgent                Tab completes');
     await h.press(KEYS.tab, KEYS.enter);
-    expect(lines().slice(0, 3)).toEqual(['▸ • Gamma', '  • Beta', '  • Alpha']);
-    expect(line(ROW.tags)).toBe('[Urgent]');
+    expect(line(0)).toBe(` Tags › Gamma           ${C}`);
+    expect(line(1)).toBe('▸ Urgent');
+    expect(line(ROW.input)).not.toMatch(/^Tag:/);
     expect(h.fs.readFile(`/w/.prompts/index/${C}.txt`)).toBe('title: Gamma\ntags: Urgent\n');
+    await h.press('a', 'z', KEYS.enter);
+    expect(lines().slice(1, 3)).toEqual(['  Urgent', '▸ z']);
+    await h.press(KEYS.escape);
+    expect(lines().slice(0, 3)).toEqual(['▸ • Gamma [Urgent] [z]', '  • Beta [work]', '  • Alpha [work] [Urgent]']);
   });
 
   it('escape leaves add mode; Add, Remove and Back work from the list', async () => {
@@ -367,10 +440,10 @@ describe('Tag', () => {
     expect(line(0)).toBe(` Tags › Gamma           ${C}`);
     expect(line(1)).toBe('no tags · a to add one');
     expect(line(ROW.buttons)).toBe('Add  Remove  Back');
-    await h.press('a', 'n', 'e', 'w', KEYS.enter);
-    expect(line(ROW.tags)).toBe('[new]');
-    await h.press('t', KEYS.escape, KEYS.enter, 'W', 'O', 'R', 'K', KEYS.enter);
-    expect(line(ROW.tags)).toBe('[new] [work]');
+    await h.press('a', 'n', 'e', 'w', KEYS.enter, 'q');
+    expect(line(0)).toBe('▸ • Gamma [new]');
+    await h.press('t', KEYS.escape, KEYS.enter, 'W', 'O', 'R', 'K', KEYS.enter, 'b');
+    expect(line(0)).toBe('▸ • Gamma [new] [work]');
     await h.press('t', KEYS.escape);
     expect(lines().slice(1, 3)).toEqual(['▸ new', '  work']);
     await h.press(KEYS.down, 'r');
@@ -380,26 +453,28 @@ describe('Tag', () => {
     expect(h.fs.readFile(`/w/.prompts/index/${C}.txt`)).toBe('title: Gamma\n');
     await h.press(KEYS.escape);
     expect(line(0)).toBe('▸ • Gamma');
-    expect(line(ROW.tags)).toBe('');
   });
 
-  it('rejects commas and stays; duplicates close silently', async () => {
+  it('rejects commas and stays; duplicates close the entry silently', async () => {
     h = await mount(THREE);
     await h.press('t', 'a', ',', 'b', KEYS.enter);
     expect(line(0)).toBe(` Tags › Gamma           ${C}`);
     expect(line(ROW.message)).toBe('tags may not contain commas');
     await h.press('a', 'x', KEYS.enter);
-    expect(line(ROW.tags)).toBe('[x]');
-    await h.press('t', 'X', KEYS.enter);
-    expect(line(0)).toBe('▸ • Gamma');
-    expect(line(ROW.tags)).toBe('[x]');
+    expect(line(1)).toBe('▸ x');
+    await h.press('a', 'X', KEYS.enter);
+    expect(line(0)).toBe(` Tags › Gamma           ${C}`);
+    expect(lines().slice(1, 3)).toEqual(['▸ x', '']);
+    expect(line(ROW.input)).not.toMatch(/^Tag:/);
+    await h.press('q');
+    expect(line(0)).toBe('▸ • Gamma [x]');
   });
 
   it('right arrow accepts completion at the end; bare letters are shortcuts outside the entry', async () => {
     h = await mount(THREE);
     await h.press('t', 'w', KEYS.right, KEYS.enter);
-    expect(line(ROW.tags)).toBe('[work]');
-    await h.press('t', KEYS.escape, 'x');
+    expect(line(1)).toBe('▸ work');
+    await h.press('x');
     expect(line(ROW.buttons)).toBe('Add  Remove  Back');
   });
 });
@@ -414,11 +489,11 @@ describe('Filter', () => {
     expect(line(2)).toBe('▸ [x] work (2)');
     expect(line(0)).toMatch(/1 selected$/);
     await h.press(KEYS.escape);
-    expect(lines().slice(0, 3)).toEqual(['Filter: work · 2 of 3', '▸ • Beta', '  • Alpha']);
+    expect(lines().slice(0, 3)).toEqual(['Filter: work · 2 of 3', '▸ • Beta [work]', '  • Alpha [work] [Urgent]']);
     await h.press('f', KEYS.enter, 'b');
-    expect(lines().slice(0, 2)).toEqual(['Filter: work, Urgent · 1 of 3', '▸ • Alpha']);
+    expect(lines().slice(0, 2)).toEqual(['Filter: work, Urgent · 1 of 3', '▸ • Alpha [work] [Urgent]']);
     await h.press('f', 'l', 'q');
-    expect(lines().slice(0, 3)).toEqual(['  • Gamma', '  • Beta', '▸ • Alpha']);
+    expect(lines().slice(0, 3)).toEqual(['  • Gamma', '  • Beta [work]', '▸ • Alpha [work] [Urgent]']);
   });
 
   it('escape in list view clears the filter', async () => {
@@ -426,13 +501,13 @@ describe('Filter', () => {
     await h.press('f', KEYS.space, KEYS.escape);
     expect(line(0)).toMatch(/^Filter: Urgent/);
     await h.press(KEYS.escape);
-    expect(lines().slice(0, 3)).toEqual(['  • Gamma', '  • Beta', '▸ • Alpha']);
+    expect(lines().slice(0, 3)).toEqual(['  • Gamma', '  • Beta [work]', '▸ • Alpha [work] [Urgent]']);
   });
 
   it('keeps reordering inside the filtered list', async () => {
     h = await mount(THREE);
-    await h.press('f', KEYS.down, KEYS.space, KEYS.escape, KEYS.shiftDown);
-    expect(lines().slice(1, 3)).toEqual(['  • Alpha', '▸ • Beta']);
+    await h.press('f', KEYS.down, KEYS.space, KEYS.escape, KEYS.space, KEYS.down);
+    expect(lines().slice(1, 3)).toEqual(['  • Alpha [work] [Urgent]', '↕ • Beta [work]']);
     expect(h.fs.readFile('/w/.prompts/sort.txt')).toBe(`${C}\n${A}\n${B}\n`);
   });
 });
@@ -444,16 +519,16 @@ describe('Search', () => {
     expect(line(0)).toBe('Search: a · 3 of 3');
     expect(line(ROW.input)).toBe('Search: a');
     await h.press('l');
-    expect(lines().slice(0, 2)).toEqual(['Search: al · 1 of 3', '▸ • Alpha']);
+    expect(lines().slice(0, 2)).toEqual(['Search: al · 1 of 3', '▸ • Alpha [work] [Urgent]']);
     await h.press(KEYS.enter);
-    expect(line(ROW.input)).toBe('[work] [Urgent]');
+    expect(line(ROW.input)).not.toMatch(/^Search:/);
     expect(line(0)).toBe('Search: al · 1 of 3');
     await h.press('f', KEYS.space, KEYS.escape);
     expect(line(0)).toBe('Search: al · Filter: Urgent · 1 of 3');
     await h.press('/', KEYS.escape);
     expect(line(0)).toBe('Filter: Urgent · 1 of 3');
     await h.press(KEYS.escape);
-    expect(lines().slice(0, 3)).toEqual(['  • Gamma', '  • Beta', '▸ • Alpha']);
+    expect(lines().slice(0, 3)).toEqual(['  • Gamma', '  • Beta [work]', '▸ • Alpha [work] [Urgent]']);
   });
 });
 
@@ -479,7 +554,7 @@ describe('Reload', () => {
     h.fs.writeFile(`/w/.prompts/index/${A}.txt`, 'title: Alpha renamed\n');
     h.fs.writeFile('/w/.prompts/index/20260101-000009.txt', 'title: Outside\n');
     await h.press('r');
-    expect(lines().slice(0, 4)).toEqual(['  • Outside', '  • Gamma', '▸ • ✓ Beta', '  • Alpha renamed']);
+    expect(lines().slice(0, 4)).toEqual(['  • Outside', '  • Gamma', '▸ • ✓ Beta [work]', '  • Alpha renamed']);
   });
 
   it('reports a broken store and keeps the current state', async () => {
@@ -487,7 +562,7 @@ describe('Reload', () => {
     h.fs.writeFile(`/w/.prompts/index/${A}.txt`, 'nope\n');
     await h.press('r');
     expect(line(ROW.message)).toMatch(new RegExp(`^reload failed: index/${A}`));
-    expect(line(2)).toBe('  • Alpha');
+    expect(line(2)).toBe('  • Alpha [work] [Urgent]');
   });
 });
 
@@ -495,17 +570,17 @@ describe('mouse', () => {
   it('click selects a row and focuses the body; wheel moves; click activates a button', async () => {
     h = await mount(THREE);
     await h.press(KEYS.right, mouse(0, 5, 2));
-    expect(focusedRow()).toBe('• Alpha');
+    expect(focusedRow()).toBe('• Alpha [work] [Urgent]');
     await h.press(mouse(64, 0, 0));
-    expect(focusedRow()).toBe('• Beta');
+    expect(focusedRow()).toBe('• Beta [work]');
     await h.press(mouse(65, 0, 0));
-    expect(focusedRow()).toBe('• Alpha');
+    expect(focusedRow()).toBe('• Alpha [work] [Urgent]');
     await h.press(mouse(0, 18, 11));
     expect(line(ROW.buttons)).toContain('✓ Done');
     await h.press(mouse(0, 5, 11));
     expect(line(0)).toMatch(/^ Open › Alpha/);
     await h.press(mouse(0, 34, 11));
-    expect(line(2)).toBe('▸ • ✓ Alpha');
+    expect(line(2)).toBe('▸ • ✓ Alpha [work] [Urgent]');
   });
 });
 
@@ -515,11 +590,11 @@ describe('errors and size', () => {
     h.fs.writeFile = () => {
       throw new Error('disk full');
     };
-    await h.press(KEYS.shiftDown);
+    await h.press(KEYS.space, KEYS.down);
     expect(line(ROW.message)).toBe('disk full');
     expect(line(ROW.buttons)).toContain('New');
     await h.press(KEYS.down);
-    expect(line(ROW.message)).toMatch(/^─+$/);
+    expect(line(ROW.message)).toBe('──── moving · press space when done ────');
   });
 
   it('refuses to draw below the minimum size', async () => {

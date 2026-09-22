@@ -192,11 +192,21 @@ describe('sort', () => {
 
   it('moves within the visible list and rewrites the full order', () => {
     const full = ['a', 'b', 'c', 'd'];
-    expect(moveInOrder(full, ['a', 'c'], 'c', 'up')).toEqual(['c', 'a', 'b', 'd']);
-    expect(moveInOrder(full, ['a', 'c'], 'a', 'down')).toEqual(['b', 'c', 'a', 'd']);
-    expect(moveInOrder(full, full, 'b', 'down')).toEqual(['a', 'c', 'b', 'd']);
-    expect(moveInOrder(full, full, 'a', 'up')).toBeNull();
-    expect(moveInOrder(full, full, 'd', 'down')).toBeNull();
-    expect(moveInOrder(full, ['a'], 'a', 'down')).toBeNull();
+    expect(moveInOrder(full, ['a', 'c'], 'c', -1)).toEqual(['c', 'a', 'b', 'd']);
+    expect(moveInOrder(full, ['a', 'c'], 'a', 1)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveInOrder(full, full, 'b', 1)).toEqual(['a', 'c', 'b', 'd']);
+    expect(moveInOrder(full, full, 'a', -1)).toBeNull();
+    expect(moveInOrder(full, full, 'd', 1)).toBeNull();
+    expect(moveInOrder(full, ['a'], 'a', 1)).toBeNull();
+    expect(moveInOrder(full, full, 'a', 0)).toBeNull();
+  });
+
+  it('moves several steps and clamps at the ends', () => {
+    const full = ['a', 'b', 'c', 'd'];
+    expect(moveInOrder(full, full, 'a', 2)).toEqual(['b', 'c', 'a', 'd']);
+    expect(moveInOrder(full, full, 'a', 10)).toEqual(['b', 'c', 'd', 'a']);
+    expect(moveInOrder(full, full, 'd', -10)).toEqual(['d', 'a', 'b', 'c']);
+    expect(moveInOrder(full, ['b', 'd'], 'b', 5)).toEqual(['a', 'c', 'd', 'b']);
+    expect(moveInOrder(full, ['b', 'd'], 'd', -5)).toEqual(['a', 'd', 'b', 'c']);
   });
 });

@@ -12,16 +12,22 @@ export function CommandPane({
   focus,
   message,
   columns,
+  hint,
+  right,
 }: {
   buttons: Button[];
   /** 0 = none focused; n = button n-1. */
   focus: number;
   message: Message | null;
   columns: number;
+  /** Centered in the separator above the buttons. */
+  hint?: string | null;
+  /** Counter on the right of that separator. */
+  right?: string | null;
 }) {
   return (
     <Box flexDirection="column" height={commandPaneHeight(message)} width={columns} overflow="hidden">
-      <Separator columns={columns} />
+      <Separator columns={columns} center={hint ?? null} right={right ?? null} />
       {message && (
         <Text color={message.kind === 'error' ? 'red' : 'green'} wrap="truncate">
           {message.text}

@@ -31,6 +31,22 @@ describe('layoutRows', () => {
       { text: '• x', item: 1, first: true },
     ]);
   });
+  it('records where a styled tail starts on each row', () => {
+    expect(layoutRows([{ text: 'one', tail: '[a]' }], 20, '• ')).toEqual([{ text: '• one [a]', item: 0, first: true, tail: 6 }]);
+    expect(layoutRows([{ text: 'one two', tail: '[a] [b]' }], 9, '• ')).toEqual([
+      { text: '• one two', item: 0, first: true },
+      { text: '  [a] [b]', item: 0, first: false, tail: 2 },
+    ]);
+    expect(layoutRows([{ text: 'one two', tail: '[aa] [bb]' }], 12, '• ')).toEqual([
+      { text: '• one two', item: 0, first: true },
+      { text: '  [aa] [bb]', item: 0, first: false, tail: 2 },
+    ]);
+    expect(layoutRows([{ text: 'one', tail: '[aaaa] [bb]' }], 12, '• ')).toEqual([
+      { text: '• one [aaaa]', item: 0, first: true, tail: 6 },
+      { text: '  [bb]', item: 0, first: false, tail: 2 },
+    ]);
+    expect(layoutRows([{ text: 'one', tail: '' }], 20)).toEqual([{ text: 'one', item: 0, first: true }]);
+  });
 });
 
 describe('scrollToShow', () => {

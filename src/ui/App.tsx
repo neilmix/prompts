@@ -94,10 +94,10 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
         savePrompt(fs, paths, prompt);
         dispatch({ type: 'upsertPrompt', prompt });
       }, undefined),
-    move: (dir) =>
+    move: (by) =>
       guarded(() => {
         if (state.selectedId === null) return;
-        const sort = moveInOrder(fullOrder(state), visibleIds(state), state.selectedId, dir);
+        const sort = moveInOrder(fullOrder(state), visibleIds(state), state.selectedId, by);
         if (!sort) return;
         saveSort(fs, paths, sort);
         dispatch({ type: 'setSort', sort });

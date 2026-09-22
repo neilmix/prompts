@@ -11,11 +11,13 @@ const key = (over: Partial<Key> = {}): Key => ({
 });
 
 describe('toAction', () => {
-  it('maps arrows with modifiers', () => {
+  it('maps arrows and navigation keys, ignoring arrow modifiers', () => {
     expect(toAction('', key({ upArrow: true }))).toEqual({ type: 'up' });
-    expect(toAction('down', key({ downArrow: true, ctrl: true }))).toEqual({ type: 'pageDown' });
-    expect(toAction('', key({ upArrow: true, shift: true }))).toEqual({ type: 'moveUp' });
-    expect(toAction('down', key({ downArrow: true, ctrl: true, shift: true }))).toEqual({ type: 'bottom' });
+    expect(toAction('down', key({ downArrow: true, ctrl: true }))).toEqual({ type: 'down' });
+    expect(toAction('', key({ upArrow: true, shift: true }))).toEqual({ type: 'up' });
+    expect(toAction('down', key({ downArrow: true, ctrl: true, shift: true }))).toEqual({ type: 'down' });
+    expect(toAction('', key({ pageUp: true }))).toEqual({ type: 'pageUp' });
+    expect(toAction('', key({ pageDown: true }))).toEqual({ type: 'pageDown' });
     expect(toAction('', key({ home: true }))).toEqual({ type: 'home' });
     expect(toAction('', key({ end: true }))).toEqual({ type: 'end' });
     expect(toAction('', key({ leftArrow: true }))).toEqual({ type: 'left' });

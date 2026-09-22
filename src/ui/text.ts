@@ -36,7 +36,14 @@ export interface Row {
   item: number;
   /** True for the first row of an item. */
   first: boolean;
+  /** Column from which the row shows the item's tail (e.g. tag chips), if any. */
+  tail?: number;
 }
+
+/** A list item: plain text, or text with a differently styled tail appended. */
+export type Item = string | { text: string; tail: string };
+
+export const itemText = (item: Item): string => (typeof item === 'string' ? item : item.tail === '' ? item.text : `${item.text} ${item.tail}`);
 
 export interface Viewport {
   top: number;
@@ -47,15 +54,28 @@ export interface Viewport {
 /**
  * Lay out items as wrapped rows. `prefix` (e.g. a bullet) starts each item's
  * first row; continuation rows are indented by its width so wrapped text
- * lines up under the first row's text.
+ * lines up under the first row's text. An item with a tail gets `tail` set
+ * on each row that shows part of it: the column where the tail starts.
  */
-export function layoutRows(items: readonly string[], width: number, prefix = ''): Row[] {
+export function layoutRows(items: readonly Item[], width: number, prefix = ''): Row[] {
   const rows: Row[] = [];
   const indent = ' '.repeat(prefix.length);
-  items.forEach((text, item) => {
-    wrapText(text, width - prefix.length).forEach((line, i) =>
-      rows.push({ text: (i === 0 ? prefix : indent) + line, item, first: i === 0 }),
-    );
+  items.forEach((it, item) => {
+    const text = itemText(it);
+    // Where the tail begins in `text`; Infinity when there is none.
+    const tailAt = typeof it === 'string' || it.tail === '' ? Infinity : it.text.length + 1;
+    // Each wrapped line is a contiguous slice of `text`, so its offset can
+    // be recovered by searching forward from the previous line's end.
+    let at = 0;
+    wrapText(text, width - prefix.length).forEach((line, i) => {
+      const start = Math.max(at, text.indexOf(line, at));
+      at = start + line.length;
+      const lead = i === 0 ? prefix : indent;
+      const row: Row = { text: lead + line, item, first: i === 0 };
+      if (start >= tailAt) row.tail = lead.length;
+      else if (at > tailAt) row.tail = lead.length + (tailAt - start);
+      rows.push(row);
+    });
   });
   return rows;
 }
@@ -69,7 +89,7 @@ export function scrollToShow(top: number, start: number, end: number, height: nu
 }
 
 /** Compute the visible rows of a list, keeping `selected` fully in view. */
-export function listViewport(items: readonly string[], selected: number, height: number, width: number, prevTop: number, prefix = ''): Viewport {
+export function listViewport(items: readonly Item[], selected: number, height: number, width: number, prevTop: number, prefix = ''): Viewport {
   const rows = layoutRows(items, width, prefix);
   const start = rows.findIndex((r) => r.item === selected);
   let top = 0;
@@ -80,6 +100,9 @@ export function listViewport(items: readonly string[], selected: number, height:
   } else top = Math.max(0, Math.min(prevTop, rows.length - height));
   return { top, total: rows.length, rows: rows.slice(top, top + Math.max(0, height)) };
 }
+
+/** Tags as chips: `[work] [urgent]`. */
+export const chips = (tags: readonly string[]): string => tags.map((t) => `[${t}]`).join(' ');
 
 /** `3–9 of 42` when the content overflows, else null. */
 export function rangeLabel(top: number, shown: number, total: number): string | null {

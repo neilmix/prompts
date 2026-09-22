@@ -24,10 +24,20 @@
   directory and linking to the GitHub page.
 - Fix: the CLI did nothing when started through a symlinked bin (`npm link`).
 - Done button shows `✓ Done` instead of `[x] Done`; Done is available in Open.
-- The Tags view opens with the Add entry active, and committing a tag
-  returns to the list view. Escape leaves the entry to show the tag list.
+- The Tags view opens with the Add entry active. Committing a tag closes
+  the entry and selects the tag; Back, Escape or q return to the previous
+  view.
 - List view titles start with a `•` bullet; wrapped lines indent under the
   title text.
+- Reordering is now a move mode: Space toggles it, then Up/Down, PageUp/
+  PageDown, Home/End and the vim keys move the selected prompt. Replaces
+  Shift+arrows, which Terminal.app never sends. Ctrl+arrow and
+  Ctrl+Shift+arrow aliases are gone; use PageUp/PageDown and Home/End
+  (Fn+arrows on a Mac). The list view shows `press space to reorder`
+  centered in the line above the buttons.
+- The tag pane is gone. The list view draws each prompt's tags after its
+  title in cyan; the Open view shows them in the title bar after the
+  title. The range counter moved to the separator above the buttons.
 - Ctrl+letter no longer activates buttons; shortcuts are bare keys only
   (^C still quits). Copy's shortcut is now `c` and Copy is available in the
   list view. Copy uses the title when the prompt's text is blank.

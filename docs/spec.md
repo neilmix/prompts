@@ -33,15 +33,15 @@ Every view is a stack of panes filling the terminal:
 - **Title bar** (modals only): one inverse line. Left: `View › Title`.
   Right: a dim detail such as the prompt ID.
 - **Body**: a list or a text pane. Scrolls when it overflows.
-- **Tag pane** (list view and Open): the selected prompt's tags as chips,
-  `[work] [urgent]`, wrapping. Blank when there are no tags.
 - **Input pane** (when a text entry is active): one separator, then
   `Label: value`.
 - **Command pane**: a separator, an optional message line, then the buttons.
 
 Separators are full-width `─` lines. A separator may carry a dim label on
-its left, e.g. `─ tags ────`, and a dim counter on its right, e.g.
-`── 3–9 of 42 ─` when the body above it overflows.
+its left, e.g. `─ tags ────`, a dim counter on its right, e.g.
+`── 3–9 of 42 ─` when the body above it overflows, or dim text centered in
+the line, e.g. `──── press space to reorder ────`. Centered text is omitted
+when it does not fit.
 
 Empty bodies show a gray hint with the next action: `no prompts · n to
 create one`, `no tags · a to add one`, `empty · e to edit`.
@@ -77,16 +77,35 @@ entry is active.
 | --- | --- |
 | Up, k | Previous row, or scroll text up one line |
 | Down, j | Next row, or scroll text down one line |
-| ^Up, PageUp | Up one page (the body height in rows) |
-| ^Down, PageDown | Down one page |
-| ^Shift+Up, Home, g | First row / top |
-| ^Shift+Down, End, G | Last row / bottom |
-| Shift+Up / Shift+Down | List view only: move the selected prompt in the sort order (section 6) |
+| PageUp | Up one page (the body height in rows) |
+| PageDown | Down one page |
+| Home, g | First row / top |
+| End, G | Last row / bottom |
+| Space | List view only: enter or leave move mode (below) |
 | q | List view: Quit (also its button shortcut). Modals: Back |
 | Escape | List view: clear search and tag filter. Modals: Back |
 
+Modifier keys on arrows (Ctrl, Shift, Option) are ignored: terminals differ
+on whether they send them, and Terminal.app on macOS sends none by default.
+On a Mac keyboard without a navigation cluster, macOS itself maps Fn+Up,
+Fn+Down, Fn+Left and Fn+Right to PageUp, PageDown, Home and End.
+
 Rows stay visible: the body scrolls the minimum needed to show the whole
 selected row.
+
+**Move mode** (list view): Space with a prompt selected enters move mode.
+The selected row's gutter marker becomes `↕` and the row is drawn white on
+a magenta background. While in move mode the body keys move the selected
+prompt in the sort order (section 6) instead of moving the selection: Up
+and Down by one, PageUp and PageDown by a page, Home and End to the first
+and last displayed position, and the vim keys likewise. Each move writes
+`sort.txt`. Space or Escape leaves move mode; the prompt stays selected.
+Every other key, including shortcut letters, Enter, Tab and Left/Right, is
+ignored in move mode. ^C still quits.
+
+The list view's command pane separator carries a centered hint whenever a
+prompt is selected: `press space to reorder`, or `moving · press space when
+done` in move mode. Other views have no hint.
 
 Mouse, when the terminal reports it: clicking a body row selects it,
 clicking a button activates it, wheel up / down moves the selection (or
@@ -97,13 +116,15 @@ scrolls text) one row.
 ### List view
 
 - Body: prompt titles, single-spaced, one row per prompt, each drawn as
-  `• <title>` after the gutter. A wrapped title continues on following
-  lines indented two spaces so the text lines up under the first line's
-  text. Done prompts are prefixed `✓ ` (`• ✓ <title>`).
+  `• <title> [tag] [tag]` after the gutter, the tag chips in cyan. A
+  wrapped row continues on following lines indented two spaces so the text
+  lines up under the first line's text; chips wrap with the title. Done
+  prompts are prefixed `✓ ` (`• ✓ <title>`).
 - The first body line, when a search or filter is active, is a yellow
   header: `Search: foo · Filter: work, urgent · 2 of 7`. Segments that do
   not apply are omitted.
-- Tag pane shows the selected prompt's tags.
+- The command pane separator carries the range counter on its right when
+  the list overflows, e.g. `── press space to reorder ── 3–9 of 42 ─`.
 - Buttons: **New, Open, Copy, Done, Tag, Filter, Settings, Reload, Quit**.
   Each button's shortcut letter is underlined: n, o, c, d, t, f, s, r, q.
 - Primary action (Enter on body): Open.
@@ -144,12 +165,13 @@ filter (both must match). Search is not persisted.
 
 ### Open view
 
-- Title bar: `Open › <title>`, right: the prompt ID.
+- Title bar: `Open › <title>` followed by the tag chips `[work] [urgent]`,
+  right: the prompt ID.
 - Body: the text file, scrollable. A single trailing newline is not shown
   as a blank line. Empty text shows the empty hint.
 - The separator below the body is labeled with the text file's relative
-  path, e.g. `─ .prompts/text/20260921-143005.txt ─`.
-- Tag pane shows the prompt's tags.
+  path, e.g. `─ .prompts/text/20260921-143005.txt ─`, with the range
+  counter on its right when the text overflows.
 - Buttons: **Edit, Retitle, Tag, Copy, Done, Back**. Shortcuts e, r, t, c, d,
   b.
 - Primary action: Edit.
@@ -186,9 +208,9 @@ filter (both must match). Search is not persisted.
   and contain no comma, and is added unless the prompt already has it
   (case-insensitive). When an existing tag matches case-insensitively, the
   existing spelling is used. A successful commit, including a duplicate,
-  closes the Tag view and returns to the view it was opened from (list or
-  Open). A comma shows an error
-  and closes the entry but stays in the Tag view. Escape cancels.
+  closes the entry, stays in the Tag view, and selects the tag (the new
+  one, or the existing match). A comma shows an error and closes the entry
+  but stays in the Tag view. Escape cancels.
 - **Remove**, Delete, Backspace: remove the selected tag. No-op when empty.
 - Changes are written to the index file immediately.
 
@@ -198,7 +220,8 @@ filter (both must match). Search is not persisted.
 - Body: every tag in use, deduplicated and sorted case-insensitively, as
   `[x] work (4)` where the number is how many prompts carry the tag.
 - Buttons: **Back, Clear** (b, l).
-- Primary action and Space: toggle the selected tag.
+- Primary action and Space: toggle the selected tag. (Space here toggles a
+  tag, not move mode; move mode exists only in the list view.)
 - **Clear**: uncheck every tag.
 - A prompt passes the filter when it has every checked tag. No checked tags
   means every prompt passes. The filter is not persisted.
@@ -219,11 +242,12 @@ filter (both must match). Search is not persisted.
 - Displayed order: prompts not listed in `sort.txt` first, newest ID first,
   then prompts in `sort.txt` order. IDs in `sort.txt` with no matching prompt
   are ignored and dropped on the next write.
-- Shift+Up / Shift+Down swap the selected prompt with its neighbor in the
-  displayed (filtered and searched) list. The full order is then written to
-  `sort.txt`, with the moved prompt placed immediately before (up) or after
-  (down) that neighbor. Every prompt is listed after any write.
-- Moving past either end does nothing.
+- Move mode (section 4) moves the selected prompt by N positions within the
+  displayed (filtered and searched) list, stopping at the ends. The full
+  order is then written to `sort.txt`, with the moved prompt placed
+  immediately before (up) or after (down) the displayed prompt that
+  occupied its new position. Every prompt is listed after any write.
+- A move that changes nothing, such as Up at the top, writes nothing.
 
 ## 7. Text entries
 
@@ -268,3 +292,7 @@ Review these; they were chosen for simplicity.
 - Wrapped titles stay wrapped (no truncation setting).
 - The minimum terminal size is 40 by 10.
 - ID collisions append `-2`, `-3`.
+- Move mode draws the row white on magenta with a `↕` marker and ignores
+  every key except the movement keys, Space, Escape and ^C.
+- The Open view's tag chips sit inside the inverse title bar, so they are
+  not cyan there.
