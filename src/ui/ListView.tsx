@@ -52,7 +52,7 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
       { label: 'Open', shortcut: 'o', onActivate: open },
       { label: 'Copy', shortcut: 'c', onActivate: withSelected((id) => void actions.copy(id)) },
       { label: doneLabel(selected !== null && state.done.has(selected.id)), shortcut: 'd', onActivate: withSelected((id) => dispatch({ type: 'toggleDone', id })) },
-      { label: 'Tag', shortcut: 't', onActivate: withSelected((id) => dispatch({ type: 'openModal', modal: { kind: 'tag', id } })) },
+      { label: 'Tag', shortcut: 't', onActivate: withSelected((id) => dispatch({ type: 'openModal', modal: { kind: 'tag', id, from: 'list' } })) },
       { label: 'Filter', shortcut: 'f', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'filter' } }) },
       { label: 'Settings', shortcut: 's', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'settings' } }) },
       { label: 'Reload', shortcut: 'r', onActivate: () => actions.reload() },

@@ -20,7 +20,8 @@ Terminal app (Node, TypeScript, Ink) that manages AI prompt drafts in a
 - Tags never contain commas. Tag comparison is case-insensitive.
 - Done state is in memory only. Deletion happens only on Quit, after confirmation.
 - Every file written to `.prompts` uses the `key: value` syntax from
-  file-format.md and ends with a newline.
+  file-format.md and ends with a newline. The only exception is the
+  `README.md` written at setup, which is Markdown.
 - Do not add settings, keys, or commands beyond the spec without asking.
 - Update `CHANGELOG.md` under Unreleased for user-visible changes.
 - Import sibling `.tsx` modules with a `.js` extension. A `.jsx` extension

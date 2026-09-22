@@ -33,7 +33,8 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
   const commands = useCommands(
     [
       { label: 'Edit', shortcut: 'e', onActivate: edit },
-      { label: 'Title', shortcut: 't', onActivate: () => setEditingTitle(true) },
+      { label: 'Retitle', shortcut: 'r', onActivate: () => setEditingTitle(true) },
+      { label: 'Tag', shortcut: 't', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'tag', id, from: 'open' } }) },
       { label: 'Copy', shortcut: 'c', onActivate: () => void actions.copy(id) },
       { label: doneLabel(state.done.has(id)), shortcut: 'd', onActivate: () => dispatch({ type: 'toggleDone', id }) },
       { label: 'Back', shortcut: 'b', onActivate: back },

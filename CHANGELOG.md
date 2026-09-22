@@ -18,6 +18,10 @@
   Typing in the Tags view no longer starts Add; press `a`.
 - A directory without `.prompts` now prompts to configure it instead of
   auto-creating (empty dir) or refusing (non-empty dir).
+- Open view: Title is now Retitle (r); new Tag button (t) opens the Tag view
+  and returns to the Open view when done.
+- Configuring a directory writes a `README.md` into `.prompts` describing the
+  directory and linking to the GitHub page.
 - Fix: the CLI did nothing when started through a symlinked bin (`npm link`).
 - Done button shows `✓ Done` instead of `[x] Done`; Done is available in Open.
 - The Tags view opens with the Add entry active, and committing a tag

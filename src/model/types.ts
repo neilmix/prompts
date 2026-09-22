@@ -6,7 +6,8 @@ export type { Prompt, AppSettings, SettingKey };
 export type Modal =
   | { kind: 'new' }
   | { kind: 'open'; id: string }
-  | { kind: 'tag'; id: string }
+  /** `from` is the view Back returns to. */
+  | { kind: 'tag'; id: string; from: 'list' | 'open' }
   | { kind: 'filter' }
   | { kind: 'settings' };
 

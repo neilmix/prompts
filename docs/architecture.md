@@ -50,8 +50,8 @@ src/
       Separator.tsx   `─` rule with optional label and counter
     modals/
       NewModal.tsx    title entry, then editor
-      OpenModal.tsx   text pane, Edit/Title/Copy/Back
-      TagModal.tsx
+      OpenModal.tsx   text pane, Edit/Retitle/Tag/Copy/Done/Back
+      TagModal.tsx    tag list; `from` says which view Back returns to
       FilterModal.tsx
       SettingsModal.tsx
     controls/
@@ -85,7 +85,9 @@ A single reducer in `model/state.ts` owns:
 - `selectedId`
 - `filter`: checked tags; `search`: title substring
 - `done`: set of IDs
-- `modal`: `null | { kind, id? }`
+- `modal`: `null | { kind, id? }`. There is no modal stack: one modal is
+  shown at a time, and a view that can be reached from two places (Tag,
+  from list or Open) carries a `from` field and reopens the parent on Back.
 - `message`: transient error or status for the command pane
 
 Per-view state (focus, scroll top, open entries) lives in the view

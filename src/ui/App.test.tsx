@@ -192,7 +192,7 @@ describe('Open', () => {
     expect(lines().slice(1, 3)).toEqual(['line one', 'line two']);
     expect(line(8)).toBe(`─ .prompts/text/${B}.txt ────`);
     expect(line(9)).toBe('[work]');
-    expect(line(11)).toBe('Edit  Title  Copy  Done  Back');
+    expect(line(11)).toBe('Edit  Retitle  Tag  Copy  Done  Back');
   });
 
   it('scrolls with arrows and vim keys and shows a range counter', async () => {
@@ -249,9 +249,9 @@ describe('Open', () => {
     expect(line(ROW.message)).toBe('no clipboard');
   });
 
-  it('renames via Title and returns with Back, q, or escape', async () => {
+  it('renames via Retitle and returns with Back, q, or escape', async () => {
     h = await mount(THREE);
-    await h.press('o', 't');
+    await h.press('o', 'r');
     expect(line(ROW.input)).toBe('Title: Gamma');
     await h.press(KEYS.backspace, KEYS.backspace, 'y', KEYS.enter);
     expect(line(0)).toMatch(/^ Open › Gamy/);
@@ -264,9 +264,28 @@ describe('Open', () => {
 
   it('title escape cancels without saving', async () => {
     h = await mount(THREE);
-    await h.press('o', 't', 'x', KEYS.escape);
+    await h.press('o', 'r', 'x', KEYS.escape);
     expect(line(0)).toMatch(/^ Open › Gamma/);
-    expect(line(ROW.buttons)).toBe('Edit  Title  Copy  Done  Back');
+    expect(line(ROW.buttons)).toBe('Edit  Retitle  Tag  Copy  Done  Back');
+  });
+
+  it('Tag opens the Tag view and returns to the Open view on commit or Back', async () => {
+    h = await mount(THREE);
+    await h.press('o', 't');
+    expect(line(0)).toBe(` Tags › Gamma           ${C}`);
+    expect(line(ROW.input)).toBe('Tag:');
+    await h.press('n', 'e', 'w', KEYS.enter);
+    expect(line(0)).toMatch(/^ Open › Gamma/);
+    expect(line(9)).toBe('[new]');
+    expect(h.fs.readFile(`/w/.prompts/index/${C}.txt`)).toBe('title: Gamma\ntags: new\n');
+    await h.press('t', KEYS.escape, KEYS.escape);
+    expect(line(0)).toMatch(/^ Open › Gamma/);
+    await h.press('t', KEYS.escape, 'b');
+    expect(line(0)).toMatch(/^ Open › Gamma/);
+    await h.press('t', KEYS.escape, 'q');
+    expect(line(0)).toMatch(/^ Open › Gamma/);
+    await h.press('b');
+    expect(line(0)).toBe('▸ • Gamma');
   });
 });
 
@@ -286,7 +305,7 @@ describe('Done and Quit', () => {
   it('toggles done from the Open view', async () => {
     h = await mount(THREE);
     await h.press('o', 'd');
-    expect(line(ROW.buttons)).toBe('Edit  Title  Copy  ✓ Done  Back');
+    expect(line(ROW.buttons)).toBe('Edit  Retitle  Tag  Copy  ✓ Done  Back');
     await h.press('b');
     expect(line(0)).toBe('▸ • ✓ Gamma');
     expect(line(ROW.buttons)).toContain('✓ Done');
@@ -485,7 +504,7 @@ describe('mouse', () => {
     expect(line(ROW.buttons)).toContain('✓ Done');
     await h.press(mouse(0, 5, 11));
     expect(line(0)).toMatch(/^ Open › Alpha/);
-    await h.press(mouse(0, 27, 11));
+    await h.press(mouse(0, 34, 11));
     expect(line(2)).toBe('▸ • ✓ Alpha');
   });
 });

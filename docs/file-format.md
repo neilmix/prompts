@@ -5,6 +5,7 @@ endings so that it diffs cleanly under version control.
 
 ```
 .prompts/
+  README.md
   settings.txt
   sort.txt
   index/
@@ -12,6 +13,12 @@ endings so that it diffs cleanly under version control.
   text/
     20260921-143005.txt
 ```
+
+## `README.md`
+
+Written once when the directory is created and never read. It says what the
+directory is for and links to https://github.com/neilmix/prompts. Deleting or
+editing it has no effect.
 
 ## Settings file syntax
 

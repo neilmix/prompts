@@ -26,9 +26,20 @@ export function openStore(fs: Fs, dir: string): OpenResult {
   return loadStore(fs, paths);
 }
 
+export const README = `# .prompts
+
+This directory holds AI prompt drafts managed by the \`prompts\` terminal app
+(npm package \`@neilmix/prompts\`). Each prompt is an entry in \`index/\` with its
+body in \`text/\`; \`sort.txt\` holds the display order and \`settings.txt\` the
+app settings. All files are plain text and safe to keep under version control.
+
+See https://github.com/neilmix/prompts for documentation and the file format.
+`;
+
 export function initStore(fs: Fs, paths: Paths): void {
   fs.mkdir(paths.index);
   fs.mkdir(paths.text);
+  fs.writeFile(paths.readme, README);
   fs.writeFile(paths.settings, '');
   fs.writeFile(paths.sort, '');
 }

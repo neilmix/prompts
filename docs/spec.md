@@ -19,8 +19,8 @@ nothing.
    `prompts needs an interactive terminal` to stderr and exit with status 1.
 4. If `<dir>/.prompts` does not exist, show the directory and ask
    `This directory is not configured for prompts. Configure now? (y/n)` in
-   the normal screen. `y` creates `.prompts/` with `settings.txt`,
-   `sort.txt`, `index/`, and `text/`, then continues. `n`, Escape, or ^C
+   the normal screen. `y` creates `.prompts/` with `README.md`,
+   `settings.txt`, `sort.txt`, `index/`, and `text/`, then continues. `n`, Escape, or ^C
    exits with status 0 and creates nothing.
 5. The app runs in the terminal's alternate screen.
 6. If the terminal is smaller than 40 columns by 10 rows, the whole screen
@@ -150,14 +150,17 @@ filter (both must match). Search is not persisted.
 - The separator below the body is labeled with the text file's relative
   path, e.g. `─ .prompts/text/20260921-143005.txt ─`.
 - Tag pane shows the prompt's tags.
-- Buttons: **Edit, Title, Copy, Done, Back**. Shortcuts e, t, c, d, b.
+- Buttons: **Edit, Retitle, Tag, Copy, Done, Back**. Shortcuts e, r, t, c, d,
+  b.
 - Primary action: Edit.
 - **Edit**: releases the terminal, runs the editor (section 9) on the text
   file, then restores the screen and reloads the text. The editor's exit
   status is ignored.
-- **Title**: `Title` entry pre-filled with the current title. Enter with a
+- **Retitle**: `Title` entry pre-filled with the current title. Enter with a
   non-empty title saves it to the index file. Empty does nothing. Escape
   cancels.
+- **Tag**: opens the Tag view for this prompt. Leaving the Tag view returns
+  to the Open view.
 - **Done**: as in the list view, for this prompt.
 - **Copy**: copies the text to the system clipboard using the first
   available of `pbcopy`, `wl-copy`, `xclip -selection clipboard`,
@@ -175,6 +178,7 @@ filter (both must match). Search is not persisted.
 - The view opens with the Add entry already active, since adding is the
   common case. Escape in the entry cancels it and leaves the tag list
   showing; Escape again goes Back.
+- **Back**, Escape, q: return to the view the Tag view was opened from.
 - **Add**: `Tag` entry. As the user types, the first tag in use across all
   prompts that starts with the text (case-insensitive) is shown dim after
   the cursor, with a dim `Tab completes` hint at the right of the line. Tab
@@ -182,7 +186,8 @@ filter (both must match). Search is not persisted.
   and contain no comma, and is added unless the prompt already has it
   (case-insensitive). When an existing tag matches case-insensitively, the
   existing spelling is used. A successful commit, including a duplicate,
-  closes the Tag view and returns to the list view. A comma shows an error
+  closes the Tag view and returns to the view it was opened from (list or
+  Open). A comma shows an error
   and closes the entry but stays in the Tag view. Escape cancels.
 - **Remove**, Delete, Backspace: remove the selected tag. No-op when empty.
 - Changes are written to the index file immediately.

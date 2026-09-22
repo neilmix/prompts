@@ -45,6 +45,21 @@ describe('openStore', () => {
     expect(openStore(fs, '/w').ok).toBe(true);
   });
 
+  it('initStore writes a README that names the tool and links to GitHub', () => {
+    const fs = new MemoryFs({ '/w': null });
+    initStore(fs, P);
+    const readme = fs.readFile('/w/.prompts/README.md');
+    expect(readme).toContain('prompts');
+    expect(readme).toContain('https://github.com/neilmix/prompts');
+    expect(readme.endsWith('\n')).toBe(true);
+  });
+
+  it('openStore ignores a README in .prompts', () => {
+    const fs = storeFs();
+    fs.writeFile('/w/.prompts/README.md', '# hi\n');
+    expect(openStore(fs, '/w').ok).toBe(true);
+  });
+
   it('refuses a missing directory', () => {
     const fs = new MemoryFs();
     const r = openStore(fs, '/nope');

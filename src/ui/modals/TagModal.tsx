@@ -11,7 +11,7 @@ import { CommandPane, commandPaneHeight } from '../panes/CommandPane.js';
 import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
 import { listViewport } from '../text.js';
 
-export function TagModal({ state, dispatch, actions, size, overlay, id }: ViewProps & { id: string }) {
+export function TagModal({ state, dispatch, actions, size, overlay, id, from }: ViewProps & { id: string; from: 'list' | 'open' }) {
   const prompt = state.prompts.get(id)!;
   const [selected, setSelected] = useState(0);
   const [adding, setAdding] = useState(true); // opens in add mode; Escape drops to the list
@@ -23,7 +23,11 @@ export function TagModal({ state, dispatch, actions, size, overlay, id }: ViewPr
   const view = listViewport(prompt.tags, sel, listHeight, size.columns - GUTTER, topRef.current);
   topRef.current = view.top;
 
-  const back = () => dispatch({ type: 'closeModal' });
+  // No modal stack: reopen the parent view instead of popping to it.
+  const back = () => {
+    if (from === 'open') dispatch({ type: 'openModal', modal: { kind: 'open', id } });
+    else dispatch({ type: 'closeModal' });
+  };
   const remove = () => {
     if (prompt.tags.length === 0) return;
     actions.setTags(id, prompt.tags.filter((_, i) => i !== sel));

@@ -4,6 +4,7 @@ export const PROMPTS_DIR = '.prompts';
 
 export interface Paths {
   root: string;
+  readme: string;
   settings: string;
   sort: string;
   index: string;
@@ -18,6 +19,7 @@ export function pathsFor(dir: string): Paths {
   const text = path.join(root, 'text');
   return {
     root,
+    readme: path.join(root, 'README.md'),
     settings: path.join(root, 'settings.txt'),
     sort: path.join(root, 'sort.txt'),
     index,

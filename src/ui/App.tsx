@@ -182,7 +182,7 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
     case 'open':
       return <OpenModal {...props} id={state.modal.id} />;
     case 'tag':
-      return <TagModal {...props} id={state.modal.id} />;
+      return <TagModal {...props} id={state.modal.id} from={state.modal.from} />;
     case 'filter':
       return <FilterModal {...props} />;
     case 'settings':
