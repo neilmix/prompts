@@ -59,7 +59,7 @@ src/
       TextInput.tsx   single-line entry with completion hint
       Confirm.tsx     y/n question in the input pane
     hooks/
-      useCommands.ts  focus model: body + buttons; Left/Right/Tab/Enter/^letter
+      useCommands.ts  focus model: body + buttons; Left/Right/Tab/Enter/letter
       useKeyActions.ts useInput wrapper feeding toAction
       useSize.ts      terminal dimensions (overridable for tests)
   editor.ts           runs the editor shell command via `sh -c`
@@ -98,7 +98,7 @@ touches the filesystem.
 ## Key handling
 
 Ink's `useInput` delivers `(input, key)`. `toAction` in `ui/keys.ts` maps
-that to one named action (`up`, `pageDown`, `moveUp`, `shortcut`, `char`,
+that to one named action (`up`, `pageDown`, `moveUp`, `char`,
 `mouse`, ...) so components never inspect raw key flags. Terminal support
 for Ctrl+Shift+arrows varies; Home and End are the reliable alternates.
 

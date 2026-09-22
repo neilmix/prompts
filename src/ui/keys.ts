@@ -19,7 +19,6 @@ export type KeyAction =
   | { type: 'space' }
   | { type: 'backspace' }
   | { type: 'delete' }
-  | { type: 'shortcut'; letter: string }
   | { type: 'char'; text: string }
   | { type: 'mouse'; button: 'left' | 'wheelUp' | 'wheelDown' | 'other'; x: number; y: number }
   | null;
@@ -48,9 +47,7 @@ export function toAction(input: string, key: Key): KeyAction {
   if (key.escape) return { type: 'escape' };
   if (key.backspace) return { type: 'backspace' };
   if (key.delete) return { type: 'delete' };
-  if (key.ctrl) {
-    return /^[a-z]$/.test(input) ? { type: 'shortcut', letter: input } : null;
-  }
+  if (key.ctrl) return null;
   if (key.meta) return null;
   const m = MOUSE_RE.exec(input);
   if (m) {

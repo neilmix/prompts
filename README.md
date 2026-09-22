@@ -35,7 +35,7 @@ project. See [docs/file-format.md](docs/file-format.md).
 ├ tag pane ──────────────────────────────┤
 │ [backend] [auth]                       │
 ├ command pane ──────────────────────────┤
-│ New  Open  Done  Tag  Filter  Settings  Reload  Quit
+│ New  Open  Copy  Done  Tag  Filter  Settings  Reload  Quit
 └────────────────────────────────────────┘
 ```
 
@@ -50,7 +50,7 @@ project. See [docs/file-format.md](docs/file-format.md).
 | Shift+Up / Shift+Down | Move the selected prompt up / down in the sort order |
 | Tab | Select the next command button |
 | Enter | Activate the selected button |
-| Ctrl+letter | Activate the button starting with that letter |
+| letter | Activate the button whose underlined letter it is |
 | Escape | Close the current modal |
 
 ## Commands
@@ -59,6 +59,7 @@ project. See [docs/file-format.md](docs/file-format.md).
 | --- | --- | --- |
 | New | n | Create a prompt from a title and open it in your editor |
 | Open | o | Read the prompt. From there: Edit, change the Title, Copy to clipboard, mark Done, or go Back |
+| Copy | c | Copy the prompt text to the clipboard, or the title when the text is blank |
 | Done | d | Toggle the prompt as done. Done prompts are deleted on Quit |
 | Tag | t | Add or remove tags on the prompt |
 | Filter | f | Show only prompts that have every selected tag |

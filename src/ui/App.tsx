@@ -121,7 +121,9 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
     },
     copy: async (id) => {
       try {
-        await copy(readText(fs, paths, id));
+        const text = readText(fs, paths, id);
+        // A prompt with no text yet: the title is the useful thing to copy.
+        await copy(text.trim() === '' ? state.prompts.get(id)!.title : text);
         dispatch({ type: 'setMessage', message: { kind: 'status', text: 'Copied' } satisfies Message });
       } catch (e) {
         fail(e);
@@ -147,7 +149,7 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
       else actions.requestQuit();
       return;
     }
-    if (tooSmall && key.ctrl && input === 'q') quit(false);
+    if (tooSmall && input === 'q') quit(false);
     else if (state.message !== null) dispatch({ type: 'setMessage', message: null });
   });
 

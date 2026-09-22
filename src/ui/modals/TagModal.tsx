@@ -14,7 +14,7 @@ import { listViewport } from '../text.js';
 export function TagModal({ state, dispatch, actions, size, overlay, id }: ViewProps & { id: string }) {
   const prompt = state.prompts.get(id)!;
   const [selected, setSelected] = useState(0);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(true); // opens in add mode; Escape drops to the list
   const topRef = useRef(0);
   const existing = allTags(state.prompts.values());
   const bottom = overlay ? overlay.height : adding ? TEXT_INPUT_HEIGHT : 0;
@@ -75,7 +75,7 @@ export function TagModal({ state, dispatch, actions, size, overlay, id }: ViewPr
             }
             const tag = canonicalTag(v.trim(), existing);
             if (!prompt.tags.some((t) => tagEq(t, tag))) actions.setTags(id, [...prompt.tags, tag]);
-            setAdding(false);
+            back();
           }}
           onCancel={() => setAdding(false)}
         />

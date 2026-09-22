@@ -5,7 +5,8 @@ derived from it. When behavior changes, change this file in the same commit.
 
 Terms: a **prompt** is one item, made of a title, tags, and a text body. The
 **store** is the `.prompts` directory (see [file-format.md](file-format.md)).
-`^X` means Ctrl+X. A button's shortcut letter works bare or with Ctrl.
+`^X` means Ctrl+X. Button shortcut letters are bare keys; Ctrl+letter does
+nothing.
 
 ## 1. Startup
 
@@ -23,7 +24,7 @@ Terms: a **prompt** is one item, made of a title, tags, and a text body. The
    exits with status 0 and creates nothing.
 5. The app runs in the terminal's alternate screen.
 6. If the terminal is smaller than 40 columns by 10 rows, the whole screen
-   shows `terminal too small` and only ^C and ^Q work.
+   shows `terminal too small` and only ^C and q work.
 
 ## 2. Screen layout
 
@@ -57,8 +58,9 @@ a view opens.
   performs the view's primary action (section 5).
 - Up / Down and the other body keys (section 4) act on the body no matter
   which target has focus.
-- Shortcut letters (bare, or with Ctrl) work no matter which target has
-  focus. They are lowercase; `G` is not a shortcut for `g`.
+- Shortcut letters work no matter which target has focus. They are bare
+  lowercase keys; `G` is not a shortcut for `g`, and Ctrl+letter is not a
+  shortcut.
 - While a text entry is active, it takes every key (section 7).
 
 Display: the focused button is inverse. When the body has focus no button
@@ -94,15 +96,16 @@ scrolls text) one row.
 
 ### List view
 
-- Body: prompt titles, single-spaced, one row per prompt. A wrapped title
-  continues on following lines indented under the gutter. Done prompts
-  are prefixed `✓ `.
+- Body: prompt titles, single-spaced, one row per prompt, each drawn as
+  `• <title>` after the gutter. A wrapped title continues on following
+  lines indented two spaces so the text lines up under the first line's
+  text. Done prompts are prefixed `✓ ` (`• ✓ <title>`).
 - The first body line, when a search or filter is active, is a yellow
   header: `Search: foo · Filter: work, urgent · 2 of 7`. Segments that do
   not apply are omitted.
 - Tag pane shows the selected prompt's tags.
-- Buttons: **New, Open, Done, Tag, Filter, Settings, Reload, Quit**. Each
-  button's shortcut letter is underlined: n, o, d, t, f, s, r, q.
+- Buttons: **New, Open, Copy, Done, Tag, Filter, Settings, Reload, Quit**.
+  Each button's shortcut letter is underlined: n, o, c, d, t, f, s, r, q.
 - Primary action (Enter on body): Open.
 - `/` opens the search entry (below).
 
@@ -113,6 +116,8 @@ then immediately runs the editor on it (as Edit does). On return, the list
 view is shown. Enter with an empty title does nothing. Escape cancels.
 
 **Open (o)**: see the Open view.
+
+**Copy (c)**: as Copy in the Open view, for the selected prompt.
 
 **Done (d)**: toggles the selected prompt's done flag, in memory only. The
 button reads `Done`, or `✓ Done` when the selected prompt is done. Nothing
@@ -145,8 +150,7 @@ filter (both must match). Search is not persisted.
 - The separator below the body is labeled with the text file's relative
   path, e.g. `─ .prompts/text/20260921-143005.txt ─`.
 - Tag pane shows the prompt's tags.
-- Buttons: **Edit, Title, Copy, Done, Back**. Shortcuts e, t, y (Copy's `y`
-  is underlined), d, b.
+- Buttons: **Edit, Title, Copy, Done, Back**. Shortcuts e, t, c, d, b.
 - Primary action: Edit.
 - **Edit**: releases the terminal, runs the editor (section 9) on the text
   file, then restores the screen and reloads the text. The editor's exit
@@ -157,7 +161,8 @@ filter (both must match). Search is not persisted.
 - **Done**: as in the list view, for this prompt.
 - **Copy**: copies the text to the system clipboard using the first
   available of `pbcopy`, `wl-copy`, `xclip -selection clipboard`,
-  `xsel --clipboard --input`. Shows the status message `Copied` or an
+  `xsel --clipboard --input`. When the text is blank (empty or only
+  whitespace), the title is copied instead. Shows the status message `Copied` or an
   error message if none is available or the command fails.
 - **Back**, Escape, q: return to the list view.
 
@@ -167,13 +172,18 @@ filter (both must match). Search is not persisted.
 - Body: the prompt's tags, one per row, first selected.
 - Buttons: **Add, Remove, Back** (a, r, b).
 - Primary action: Add.
+- The view opens with the Add entry already active, since adding is the
+  common case. Escape in the entry cancels it and leaves the tag list
+  showing; Escape again goes Back.
 - **Add**: `Tag` entry. As the user types, the first tag in use across all
   prompts that starts with the text (case-insensitive) is shown dim after
   the cursor, with a dim `Tab completes` hint at the right of the line. Tab
   or Right accepts it. Enter commits: the tag is trimmed, must be non-empty
   and contain no comma, and is added unless the prompt already has it
   (case-insensitive). When an existing tag matches case-insensitively, the
-  existing spelling is used. Escape cancels.
+  existing spelling is used. A successful commit, including a duplicate,
+  closes the Tag view and returns to the list view. A comma shows an error
+  and closes the entry but stays in the Tag view. Escape cancels.
 - **Remove**, Delete, Backspace: remove the selected tag. No-op when empty.
 - Changes are written to the index file immediately.
 
@@ -182,7 +192,7 @@ filter (both must match). Search is not persisted.
 - Title bar: `Filter tags`, right: `N selected`.
 - Body: every tag in use, deduplicated and sorted case-insensitively, as
   `[x] work (4)` where the number is how many prompts carry the tag.
-- Buttons: **Back, Clear** (b, l). `l` is underlined because ^C quits.
+- Buttons: **Back, Clear** (b, l).
 - Primary action and Space: toggle the selected tag.
 - **Clear**: uncheck every tag.
 - A prompt passes the filter when it has every checked tag. No checked tags
@@ -246,8 +256,8 @@ Review these; they were chosen for simplicity.
 - The body always has focus when a view opens.
 - Selected row colors: white on blue when the body has focus, bold otherwise.
 - Done replaces Complete. ^C quits everywhere.
-- Shortcut letters are bare keys; Ctrl+letter still works.
-- Copy's shortcut is ^Y (the underlined `y` in Copy).
+- Shortcut letters are bare keys only; Ctrl+letter does nothing.
+- Copy's shortcut is `c`; Copy is in both the list view and Open.
 - Reload is a button, not only a key.
 - Mouse wheel moves the selection rather than scrolling the viewport.
 - Wrapped titles stay wrapped (no truncation setting).

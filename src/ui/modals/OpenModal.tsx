@@ -34,7 +34,7 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
     [
       { label: 'Edit', shortcut: 'e', onActivate: edit },
       { label: 'Title', shortcut: 't', onActivate: () => setEditingTitle(true) },
-      { label: 'Copy', shortcut: 'y', onActivate: () => void actions.copy(id) },
+      { label: 'Copy', shortcut: 'c', onActivate: () => void actions.copy(id) },
       { label: doneLabel(state.done.has(id)), shortcut: 'd', onActivate: () => dispatch({ type: 'toggleDone', id }) },
       { label: 'Back', shortcut: 'b', onActivate: back },
     ],

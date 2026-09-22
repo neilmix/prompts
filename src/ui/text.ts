@@ -44,11 +44,18 @@ export interface Viewport {
   rows: Row[];
 }
 
-/** Lay out items as wrapped rows. */
-export function layoutRows(items: readonly string[], width: number): Row[] {
+/**
+ * Lay out items as wrapped rows. `prefix` (e.g. a bullet) starts each item's
+ * first row; continuation rows are indented by its width so wrapped text
+ * lines up under the first row's text.
+ */
+export function layoutRows(items: readonly string[], width: number, prefix = ''): Row[] {
   const rows: Row[] = [];
+  const indent = ' '.repeat(prefix.length);
   items.forEach((text, item) => {
-    wrapText(text, width).forEach((line, i) => rows.push({ text: line, item, first: i === 0 }));
+    wrapText(text, width - prefix.length).forEach((line, i) =>
+      rows.push({ text: (i === 0 ? prefix : indent) + line, item, first: i === 0 }),
+    );
   });
   return rows;
 }
@@ -62,8 +69,8 @@ export function scrollToShow(top: number, start: number, end: number, height: nu
 }
 
 /** Compute the visible rows of a list, keeping `selected` fully in view. */
-export function listViewport(items: readonly string[], selected: number, height: number, width: number, prevTop: number): Viewport {
-  const rows = layoutRows(items, width);
+export function listViewport(items: readonly string[], selected: number, height: number, width: number, prevTop: number, prefix = ''): Viewport {
+  const rows = layoutRows(items, width, prefix);
   const start = rows.findIndex((r) => r.item === selected);
   let top = 0;
   if (start >= 0) {

@@ -20,6 +20,9 @@ export function listHeader(state: { search: string; filter: string[] }, shown: n
   return parts.join(' · ');
 }
 
+/** Starts each title row; wrapped continuation rows are indented by its width. */
+const BULLET = '• ';
+
 export const doneLabel = (done: boolean): string => (done ? '✓ Done' : 'Done');
 
 export function ListView({ state, dispatch, actions, size, overlay }: ViewProps) {
@@ -36,7 +39,7 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
   const bodyHeight = Math.max(0, listHeight - (header === undefined ? 0 : 1));
 
   const items = ids.map((id) => (state.done.has(id) ? '✓ ' : '') + state.prompts.get(id)!.title);
-  const view = listViewport(items, selectedIndex, bodyHeight, size.columns - GUTTER, topRef.current);
+  const view = listViewport(items, selectedIndex, bodyHeight, size.columns - GUTTER, topRef.current, BULLET);
   topRef.current = view.top;
 
   const withSelected = (f: (id: string) => void) => () => {
@@ -47,6 +50,7 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
     [
       { label: 'New', shortcut: 'n', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'new' } }) },
       { label: 'Open', shortcut: 'o', onActivate: open },
+      { label: 'Copy', shortcut: 'c', onActivate: withSelected((id) => void actions.copy(id)) },
       { label: doneLabel(selected !== null && state.done.has(selected.id)), shortcut: 'd', onActivate: withSelected((id) => dispatch({ type: 'toggleDone', id })) },
       { label: 'Tag', shortcut: 't', onActivate: withSelected((id) => dispatch({ type: 'openModal', modal: { kind: 'tag', id } })) },
       { label: 'Filter', shortcut: 'f', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'filter' } }) },

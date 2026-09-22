@@ -30,8 +30,8 @@ describe('toAction', () => {
     expect(toAction('', key({ delete: true }))).toEqual({ type: 'delete' });
   });
 
-  it('maps ctrl+letter to a shortcut', () => {
-    expect(toAction('n', key({ ctrl: true }))).toEqual({ type: 'shortcut', letter: 'n' });
+  it('ignores ctrl+letter', () => {
+    expect(toAction('n', key({ ctrl: true }))).toBeNull();
     expect(toAction('', key({ ctrl: true }))).toBeNull();
   });
 

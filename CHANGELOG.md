@@ -20,3 +20,10 @@
   auto-creating (empty dir) or refusing (non-empty dir).
 - Fix: the CLI did nothing when started through a symlinked bin (`npm link`).
 - Done button shows `✓ Done` instead of `[x] Done`; Done is available in Open.
+- The Tags view opens with the Add entry active, and committing a tag
+  returns to the list view. Escape leaves the entry to show the tag list.
+- List view titles start with a `•` bullet; wrapped lines indent under the
+  title text.
+- Ctrl+letter no longer activates buttons; shortcuts are bare keys only
+  (^C still quits). Copy's shortcut is now `c` and Copy is available in the
+  list view. Copy uses the title when the prompt's text is blank.

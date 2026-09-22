@@ -24,6 +24,13 @@ describe('layoutRows', () => {
       { text: 'e', item: 1, first: false },
     ]);
   });
+  it('prefixes first rows and indents continuations by the prefix width', () => {
+    expect(layoutRows(['one two', 'x'], 6, '• ')).toEqual([
+      { text: '• one', item: 0, first: true },
+      { text: '  two', item: 0, first: false },
+      { text: '• x', item: 1, first: true },
+    ]);
+  });
 });
 
 describe('scrollToShow', () => {
