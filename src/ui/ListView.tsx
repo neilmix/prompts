@@ -4,7 +4,7 @@ import { visibleIds } from '../model/select.js';
 import { ListBody, GUTTER } from './controls/ListBody.js';
 import { TextInput, TEXT_INPUT_HEIGHT } from './controls/TextInput.js';
 import { selectedPrompt, type ViewProps } from './context.js';
-import { buttonSpans, useCommands } from './hooks/useCommands.js';
+import { useCommands } from './hooks/useCommands.js';
 import { useKeyActions } from './hooks/useKeyActions.js';
 import { vimAction, type KeyAction } from './keys.js';
 import { CommandPane, commandPaneHeight } from './panes/CommandPane.js';
@@ -101,22 +101,7 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
       case 'char':
         if (a.text === '/') setSearching(true);
         break;
-      case 'mouse': {
-        if (a.button === 'wheelUp') dispatch({ type: 'move', by: -1 });
-        else if (a.button === 'wheelDown') dispatch({ type: 'move', by: 1 });
-        else if (a.button === 'left') {
-          const bodyTop = header === undefined ? 0 : 1;
-          const row = view.rows[a.y - bodyTop];
-          if (a.y >= bodyTop && row) {
-            dispatch({ type: 'select', id: ids[row.item]! });
-            commands.setFocus(0);
-          } else if (a.y === size.rows - 1) {
-            const hit = buttonSpans(commands.buttons).findIndex((s) => a.x >= s.start && a.x < s.end);
-            if (hit >= 0) commands.buttons[hit]!.onActivate();
-          }
-        }
-        break;
-      }
+      case 'wheel': dispatch({ type: 'move', by: a.by }); break;
     }
   }, !searching && overlay === null);
 

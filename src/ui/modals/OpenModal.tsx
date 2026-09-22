@@ -2,7 +2,7 @@ import { Box, Text, useApp } from 'ink';
 import { useState } from 'react';
 import { TextInput, TEXT_INPUT_HEIGHT } from '../controls/TextInput.js';
 import type { ViewProps } from '../context.js';
-import { buttonSpans, useCommands } from '../hooks/useCommands.js';
+import { useCommands } from '../hooks/useCommands.js';
 import { useKeyActions } from '../hooks/useKeyActions.js';
 import { vimAction } from '../keys.js';
 import { CommandPane, commandPaneHeight } from '../panes/CommandPane.js';
@@ -53,14 +53,7 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
       case 'top': case 'home': setTop(0); break;
       case 'bottom': case 'end': setTop(maxTop); break;
       case 'char': if (a.text === 'q') back(); break;
-      case 'mouse':
-        if (a.button === 'wheelUp') scroll(-1);
-        else if (a.button === 'wheelDown') scroll(1);
-        else if (a.button === 'left' && a.y === size.rows - 1) {
-          const hit = buttonSpans(commands.buttons).findIndex((s) => a.x >= s.start && a.x < s.end);
-          if (hit >= 0) commands.buttons[hit]!.onActivate();
-        }
-        break;
+      case 'wheel': scroll(a.by); break;
     }
   }, !editingTitle && overlay === null);
 

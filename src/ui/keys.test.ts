@@ -45,12 +45,12 @@ describe('toAction', () => {
     expect(toAction('x', key({ meta: true }))).toBeNull();
   });
 
-  it('decodes SGR mouse reports (escape already stripped) into 0-based coordinates', () => {
-    expect(toAction('[<0;12;5M', key())).toEqual({ type: 'mouse', button: 'left', x: 11, y: 4 });
-    expect(toAction('[<64;1;1M', key())).toEqual({ type: 'mouse', button: 'wheelUp', x: 0, y: 0 });
-    expect(toAction('[<65;1;1M', key())).toEqual({ type: 'mouse', button: 'wheelDown', x: 0, y: 0 });
+  it('decodes SGR wheel reports and drops clicks', () => {
+    expect(toAction('[<64;1;1M', key())).toEqual({ type: 'wheel', by: -1 });
+    expect(toAction('[<65;1;1M', key())).toEqual({ type: 'wheel', by: 1 });
+    expect(toAction('[<0;12;5M', key())).toBeNull();
     expect(toAction('[<0;12;5m', key())).toBeNull();
-    expect(toAction('[<2;12;5M', key())).toEqual({ type: 'mouse', button: 'other', x: 11, y: 4 });
+    expect(toAction('[<2;12;5M', key())).toBeNull();
   });
 });
 

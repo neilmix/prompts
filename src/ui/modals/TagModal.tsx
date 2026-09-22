@@ -54,9 +54,9 @@ export function TagModal({ state, dispatch, actions, size, overlay, id, from }: 
       case 'bottom': case 'end': setSelected(Math.max(0, prompt.tags.length - 1)); break;
       case 'delete': case 'backspace': remove(); break;
       case 'char': if (a.text === 'q') back(); break;
-      case 'mouse':
-        if (a.button === 'wheelUp') setSelected(Math.max(0, sel - 1));
-        else if (a.button === 'wheelDown') setSelected(Math.min(prompt.tags.length - 1, sel + 1));
+      case 'wheel':
+        if (a.by < 0) setSelected(Math.max(0, sel - 1));
+        else setSelected(Math.min(prompt.tags.length - 1, sel + 1));
         break;
     }
   }, !adding && overlay === null);

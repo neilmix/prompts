@@ -33,11 +33,11 @@ const movingRow = () => {
   return m ? plain(m[1]!) : null;
 };
 /** Text drawn inverse, excluding the title bar (the focused button). */
+const mouse = (button: number, x: number, y: number) => `\x1b[<${button};${x + 1};${y + 1}M`;
 const focusedButton = () => {
   const found = [...h.frame().matchAll(/\x1b\[7m(.*?)\x1b\[27m/g)].map((m) => plain(m[1]!).trim());
   return found.filter((s) => !s.includes('›') && !/^(New prompt|Filter tags|Settings)/.test(s))[0] ?? null;
 };
-const mouse = (button: number, x: number, y: number) => `\x1b[<${button};${x + 1};${y + 1}M`;
 
 describe('list view', () => {
   it('shows a hint when empty', async () => {
@@ -567,20 +567,15 @@ describe('Reload', () => {
 });
 
 describe('mouse', () => {
-  it('click selects a row and focuses the body; wheel moves; click activates a button', async () => {
+  it('wheel moves the selection; clicks are ignored', async () => {
     h = await mount(THREE);
-    await h.press(KEYS.right, mouse(0, 5, 2));
-    expect(focusedRow()).toBe('• Alpha [work] [Urgent]');
-    await h.press(mouse(64, 0, 0));
-    expect(focusedRow()).toBe('• Beta [work]');
     await h.press(mouse(65, 0, 0));
-    expect(focusedRow()).toBe('• Alpha [work] [Urgent]');
-    await h.press(mouse(0, 18, 11));
-    expect(line(ROW.buttons)).toContain('✓ Done');
-    await h.press(mouse(0, 5, 11));
-    expect(line(0)).toMatch(/^ Open › Alpha/);
-    await h.press(mouse(0, 34, 11));
-    expect(line(2)).toBe('▸ • ✓ Alpha [work] [Urgent]');
+    expect(focusedRow()).toBe('• Beta [work]');
+    await h.press(mouse(64, 0, 0));
+    expect(focusedRow()).toBe('• Gamma');
+    await h.press(mouse(0, 5, 2), mouse(0, 5, 11));
+    expect(focusedRow()).toBe('• Gamma');
+    expect(line(0)).not.toMatch(/^ Open/);
   });
 });
 

@@ -23,6 +23,8 @@
 - Configuring a directory writes a `README.md` into `.prompts` describing the
   directory and linking to the GitHub page.
 - Fix: the CLI did nothing when started through a symlinked bin (`npm link`).
+- Mouse clicks no longer select rows or activate buttons. The wheel still
+  moves the selection.
 - Done button shows `✓ Done` instead of `[x] Done`; Done is available in Open.
 - The Tags view opens with the Add entry active. Committing a tag closes
   the entry and selects the tag; Back, Escape or q return to the previous

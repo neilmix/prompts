@@ -48,13 +48,3 @@ export function useCommands(buttons: Button[], primary: () => void): Commands {
   };
   return { buttons, focus, setFocus, handle };
 }
-
-/** Column spans of each button on the command line, for mouse hit testing. */
-export function buttonSpans(buttons: readonly Button[]): { start: number; end: number }[] {
-  let x = 0;
-  return buttons.map((b) => {
-    const span = { start: x, end: x + b.label.length };
-    x += b.label.length + 2;
-    return span;
-  });
-}

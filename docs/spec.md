@@ -107,9 +107,8 @@ The list view's command pane separator carries a centered hint whenever a
 prompt is selected: `press space to reorder`, or `moving · press space when
 done` in move mode. Other views have no hint.
 
-Mouse, when the terminal reports it: clicking a body row selects it,
-clicking a button activates it, wheel up / down moves the selection (or
-scrolls text) one row.
+Mouse, when the terminal reports it: wheel up / down moves the selection
+(or scrolls text) one row. Clicks are ignored.
 
 ## 5. Views
 
@@ -289,6 +288,7 @@ Review these; they were chosen for simplicity.
 - Copy's shortcut is `c`; Copy is in both the list view and Open.
 - Reload is a button, not only a key.
 - Mouse wheel moves the selection rather than scrolling the viewport.
+  Clicks do nothing.
 - Wrapped titles stay wrapped (no truncation setting).
 - The minimum terminal size is 40 by 10.
 - ID collisions append `-2`, `-3`.

@@ -39,7 +39,7 @@ src/
     ListView.tsx      the main view
     Setup.tsx         "Configure now? (y/n)" shown when .prompts is missing
     context.ts        Actions and ViewProps shared by views
-    keys.ts           toAction: Ink (input, key) → named action, incl. mouse;
+    keys.ts           toAction: Ink (input, key) → named action, incl. wheel;
                       vimAction: j/k/g/G mapping
     text.ts           wrapText, listViewport (scroll to keep selection),
                       rows with a styled tail (tag chips), chips, rangeLabel
@@ -99,7 +99,7 @@ touches the filesystem.
 ## Key handling
 
 Ink's `useInput` delivers `(input, key)`. `toAction` in `ui/keys.ts` maps
-that to one named action (`up`, `pageDown`, `space`, `char`, `mouse`, ...)
+that to one named action (`up`, `pageDown`, `space`, `char`, `wheel`, ...)
 so components never inspect raw key flags. Modifiers on arrow keys are
 dropped on purpose: terminals disagree on sending them (Terminal.app sends
 none by default), so every binding uses a plain key. Reordering is a mode
@@ -110,9 +110,9 @@ its body keys. A view's handler is inactive while one of its text entries
 or the App-level quit confirmation is mounted; those components subscribe
 themselves. `App` keeps one extra `useInput` for ^C and message clearing.
 
-Mouse: the CLI enables SGR mouse reporting (`?1000h ?1006h`). Reports
-arrive through `useInput` as text like `[<0;12;5M`, which `toAction`
-decodes into 0-based coordinates. Views hit-test against their own layout.
+Mouse: the CLI enables SGR mouse reporting (`?1000h ?1006h`) for the
+wheel. Reports arrive through `useInput` as text like `[<64;1;1M`, which
+`toAction` turns into a `wheel` action; clicks decode to null on purpose.
 Mouse reporting is turned off around the editor and on exit.
 
 ## Editor

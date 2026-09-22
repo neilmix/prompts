@@ -47,9 +47,9 @@ export function FilterModal({ state, dispatch, size, overlay }: ViewProps) {
       case 'bottom': case 'end': setSelected(last); break;
       case 'space': toggle(); break;
       case 'char': if (a.text === 'q') back(); break;
-      case 'mouse':
-        if (a.button === 'wheelUp') setSelected((s) => Math.max(0, s - 1));
-        else if (a.button === 'wheelDown') setSelected((s) => Math.min(last, s + 1));
+      case 'wheel':
+        if (a.by < 0) setSelected((s) => Math.max(0, s - 1));
+        else setSelected((s) => Math.min(last, s + 1));
         break;
     }
   }, overlay === null);

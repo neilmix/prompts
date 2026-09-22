@@ -18,11 +18,12 @@ export type KeyAction =
   | { type: 'backspace' }
   | { type: 'delete' }
   | { type: 'char'; text: string }
-  | { type: 'mouse'; button: 'left' | 'wheelUp' | 'wheelDown' | 'other'; x: number; y: number }
+  | { type: 'wheel'; by: -1 | 1 }
   | null;
 
 // SGR mouse report `ESC [ < b ; x ; y M`. Ink strips the ESC before
-// useInput sees it, so the match starts at `[`.
+// useInput sees it, so the match starts at `[`. Only the wheel is used;
+// clicks are dropped so they do not surprise the user.
 const MOUSE_RE = /^\[<(\d+);(\d+);(\d+)([mM])$/;
 
 /** Normalize Ink's (input, key) into one named action. */
@@ -46,10 +47,10 @@ export function toAction(input: string, key: Key): KeyAction {
   if (key.meta) return null;
   const m = MOUSE_RE.exec(input);
   if (m) {
-    if (m[4] !== 'M') return null;
     const code = Number(m[1]);
-    const button = code === 0 ? 'left' : code === 64 ? 'wheelUp' : code === 65 ? 'wheelDown' : 'other';
-    return { type: 'mouse', button, x: Number(m[2]) - 1, y: Number(m[3]) - 1 };
+    if (m[4] === 'M' && code === 64) return { type: 'wheel', by: -1 };
+    if (m[4] === 'M' && code === 65) return { type: 'wheel', by: 1 };
+    return null;
   }
   if (input === ' ') return { type: 'space' };
   if (input.length > 0 && !/[\x00-\x1f\x7f]/.test(input)) return { type: 'char', text: input };
@@ -68,5 +69,6 @@ export function vimAction(action: NonNullable<KeyAction>): NonNullable<KeyAction
   }
 }
 
+/** Enable / disable SGR mouse reporting, needed for wheel events. */
 export const MOUSE_ON = '\x1b[?1000h\x1b[?1006h';
 export const MOUSE_OFF = '\x1b[?1000l\x1b[?1006l';
