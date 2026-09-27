@@ -61,23 +61,34 @@ export function savePrompt(fs: Fs, paths: Paths, prompt: Prompt): void {
   fs.writeFile(paths.indexFile(prompt.id), serializeSettings(out));
 }
 
+/** Normalize an entered title: tabs become spaces (list output is tab-separated), then trim. */
+export function cleanTitle(title: string): string {
+  return title.replace(/\t/g, ' ').trim();
+}
+
 export function createPrompt(
   fs: Fs,
   paths: Paths,
   title: string,
   existing: ReadonlySet<string>,
   now: Date = new Date(),
+  tags: string[] = [],
+  text = '',
 ): Prompt {
   const id = nextFreeId(formatId(now), existing);
-  const prompt: Prompt = { id, title: title.trim(), tags: [] };
+  const prompt: Prompt = { id, title: cleanTitle(title), tags };
   savePrompt(fs, paths, prompt);
-  fs.writeFile(paths.textFile(id), '');
+  fs.writeFile(paths.textFile(id), text);
   return prompt;
 }
 
 export function readText(fs: Fs, paths: Paths, id: string): string {
   const p = paths.textFile(id);
   return fs.exists(p) ? fs.readFile(p) : '';
+}
+
+export function writeText(fs: Fs, paths: Paths, id: string, text: string): void {
+  fs.writeFile(paths.textFile(id), text);
 }
 
 /** Make sure the text file exists so the editor has something to open. */

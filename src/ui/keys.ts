@@ -53,7 +53,9 @@ export function toAction(input: string, key: Key): KeyAction {
     return null;
   }
   if (input === ' ') return { type: 'space' };
-  if (input.length > 0 && !/[\x00-\x1f\x7f]/.test(input)) return { type: 'char', text: input };
+  // A lone Tab is key.tab above; tabs inside pasted text become spaces.
+  const text = input.replace(/\t/g, ' ');
+  if (text.length > 0 && !/[\x00-\x1f\x7f]/.test(text)) return { type: 'char', text };
   return null;
 }
 

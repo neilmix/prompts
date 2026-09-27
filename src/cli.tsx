@@ -2,6 +2,7 @@
 import { render } from 'ink';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { parseArgs, runCommand } from './command.js';
 import { runEditor } from './editor.js';
 import { realFs } from './store/fs.js';
 import { initStore, loadStore, openStore, type Store } from './store/open.js';
@@ -10,7 +11,18 @@ import { MOUSE_OFF, MOUSE_ON } from './ui/keys.js';
 import { Setup } from './ui/Setup.js';
 
 export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
-  const dir = path.resolve(argv[0] ?? process.cwd());
+  const args = parseArgs(argv);
+  if ('error' in args) {
+    process.stderr.write(`${args.error}\nRun prompts --help for usage.\n`);
+    return 2;
+  }
+  const dir = path.resolve(args.dir ?? process.cwd());
+  if (args.command) {
+    const r = await runCommand(realFs, dir, args.command, readStdin);
+    await write(process.stdout, r.stdout);
+    await write(process.stderr, r.stderr);
+    return r.code;
+  }
   const isTty = Boolean(process.stdin.isTTY && process.stdout.isTTY);
   let store: Store;
   const result = openStore(realFs, dir);
@@ -57,6 +69,30 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<numb
     process.stdout.write(`Deleted ${outcome.deleted} prompt${outcome.deleted === 1 ? '' : 's'}.\n`);
   }
   return 0;
+}
+
+// Not readFileSync(0): it fails with EAGAIN when stdin is a non-blocking pipe.
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+/**
+ * Resolves once `text` is flushed, so exiting right after cannot truncate
+ * piped output. A reader that closes early (`| head`) is not an error.
+ */
+function write(stream: NodeJS.WriteStream, text: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (text === '') return resolve();
+    const done = (e?: NodeJS.ErrnoException | null) => {
+      if (e && e.code !== 'EPIPE') reject(e);
+      else resolve();
+    };
+    // Kept attached: the stream also emits the error after the callback runs.
+    stream.on('error', done);
+    stream.write(text, done);
+  });
 }
 
 function needTty(): number {

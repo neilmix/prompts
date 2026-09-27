@@ -43,10 +43,12 @@ Metadata for one prompt.
 
 | Key | Required | Meaning |
 | --- | --- | --- |
-| `title` | yes | Non-empty after trimming. |
+| `title` | yes | Non-empty after trimming. Contains no tabs: they are replaced by spaces on input. |
 | `tags` | no | Comma-separated tags. Each tag is trimmed. Empty entries are dropped. A missing key or empty value means no tags. |
 
-Tags may not contain commas. Tags compare case-insensitively; the stored
+New tags contain only letters, digits, `-` and `_` (`[A-Za-z0-9_-]+`).
+The rule is enforced on input, not on load, so older tags with other
+characters still load. Tags compare case-insensitively; the stored
 spelling is whatever was first entered.
 
 ## `text/<id>.txt`

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MemoryFs } from './fs.js';
 import { initStore, openStore } from './open.js';
 import { pathsFor } from './paths.js';
-import { createPrompt, deletePrompt, ensureText, loadPrompts, readText, savePrompt } from './prompts.js';
+import { cleanTitle, createPrompt, deletePrompt, ensureText, loadPrompts, readText, savePrompt, writeText } from './prompts.js';
 import { loadSettings, resolveEditor, saveSettings } from './settings.js';
 import { displayOrder, loadSort, moveInOrder, saveSort } from './sort.js';
 
@@ -142,6 +142,28 @@ describe('prompts', () => {
     expect(fs.readFile(P.textFile(a.id))).toBe('');
     const b = createPrompt(fs, P, 'B', new Set([a.id]), now);
     expect(b.id).toBe('20260921-143005-2');
+  });
+
+  it('creates with tags and text', () => {
+    const fs = storeFs();
+    const now = new Date(2026, 8, 21, 14, 30, 5);
+    const a = createPrompt(fs, P, 'T', new Set(), now, ['a', 'b'], 'body\n');
+    expect(a.tags).toEqual(['a', 'b']);
+    expect(fs.readFile(P.indexFile(a.id))).toBe('title: T\ntags: a, b\n');
+    expect(fs.readFile(P.textFile(a.id))).toBe('body\n');
+  });
+
+  it('cleans titles: tabs become spaces, then trimmed', () => {
+    expect(cleanTitle('\ta\tb  ')).toBe('a b');
+    const fs = storeFs();
+    const a = createPrompt(fs, P, 'x\ty', new Set());
+    expect(a.title).toBe('x y');
+  });
+
+  it('writes text verbatim', () => {
+    const fs = storeFs({ 'index/20260101-000000.txt': 'title: T\n' });
+    writeText(fs, P, '20260101-000000', 'no newline');
+    expect(readText(fs, P, '20260101-000000')).toBe('no newline');
   });
 
   it('saves tags comma separated', () => {

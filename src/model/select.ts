@@ -57,9 +57,11 @@ export function completeTag(prefix: string, existing: readonly string[]): string
   return existing.find((t) => tagKey(t).startsWith(k)) ?? null;
 }
 
+const TAG_RULE = 'tags use only letters, numbers, - and _';
+
 export function validateTag(tag: string): string | null {
   const t = tag.trim();
   if (t === '') return 'tag is empty';
-  if (t.includes(',')) return 'tags may not contain commas';
+  if (!/^[A-Za-z0-9_-]+$/.test(t)) return TAG_RULE;
   return null;
 }

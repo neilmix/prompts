@@ -19,7 +19,10 @@ Published on npm as `prompts` with a single `bin` entry.
 ```
 src/
   cli.tsx             entry point: argv, store open, terminal check,
-                      first-run Setup question, mouse mode, exit summary
+                      first-run Setup question, mouse mode, exit summary;
+                      hands command flags to command.ts
+  command.ts          flag parsing, --help text, and the non-interactive
+                      commands (--list/--show/--write/--create) over Fs
   store/
     format.ts         parse/serialize the `key: value` settings syntax
     ids.ts            ID generation and validation
@@ -74,6 +77,14 @@ validation errors, or `missing` when `.prompts` is absent. The CLI handles
 `missing` by rendering `Setup` in the normal screen and, on `y`, calling
 `initStore` then `loadStore`. Errors are reported before the terminal check
 so they work in pipes and tests.
+
+Command flags skip all of that. `parseArgs` in `command.ts` returns the
+directory and a `Command` (or null for the interactive app); `runCommand`
+opens the store, runs the command, and returns `{ code, stdout, stderr }`
+without touching the process, so it is unit tested over `MemoryFs`.
+`cli.tsx` supplies stdin (read asynchronously: `readFileSync(0)` fails with
+EAGAIN on non-blocking pipes) and waits for output to flush, ignoring
+EPIPE, before exiting.
 
 ## State
 
@@ -131,5 +142,5 @@ afterwards to force a redraw.
   tests assert on the stripped frame. `FORCE_COLOR=1` is set in the vitest
   config so focus styling is visible in frames. A bare Escape needs a 40ms
   wait because Ink holds it to see if a sequence follows.
-- Startup: integration tests run `cli.ts` against temp directories in
-  `./tmp` and assert exit codes and stderr.
+- Startup and flags: integration tests run `cli.tsx` against temp
+  directories in `./tmp` and assert exit codes, stdout and stderr.

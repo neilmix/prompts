@@ -45,6 +45,10 @@ describe('toAction', () => {
     expect(toAction('x', key({ meta: true }))).toBeNull();
   });
 
+  it('turns tabs in pasted text into spaces', () => {
+    expect(toAction('a\tb', key())).toEqual({ type: 'char', text: 'a b' });
+  });
+
   it('decodes SGR wheel reports and drops clicks', () => {
     expect(toAction('[<64;1;1M', key())).toEqual({ type: 'wheel', by: -1 });
     expect(toAction('[<65;1;1M', key())).toEqual({ type: 'wheel', by: 1 });

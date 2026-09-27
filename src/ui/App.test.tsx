@@ -328,6 +328,12 @@ describe('Open', () => {
     expect(line(0)).toBe('▸ • Gamy');
   });
 
+  it('Retitle turns pasted tabs into spaces', async () => {
+    h = await mount(THREE);
+    await h.press('o', 'r', 'a\tb', KEYS.enter);
+    expect(h.fs.readFile(`/w/.prompts/index/${C}.txt`)).toBe('title: Gammaa b\n');
+  });
+
   it('title escape cancels without saving', async () => {
     h = await mount(THREE);
     await h.press('o', 'r', 'x', KEYS.escape);
@@ -455,11 +461,11 @@ describe('Tag', () => {
     expect(line(0)).toBe('▸ • Gamma');
   });
 
-  it('rejects commas and stays; duplicates close the entry silently', async () => {
+  it('rejects invalid characters and stays; duplicates close the entry silently', async () => {
     h = await mount(THREE);
     await h.press('t', 'a', ',', 'b', KEYS.enter);
     expect(line(0)).toBe(` Tags › Gamma           ${C}`);
-    expect(line(ROW.message)).toBe('tags may not contain commas');
+    expect(line(ROW.message)).toBe('tags use only letters, numbers, - and _');
     await h.press('a', 'x', KEYS.enter);
     expect(line(1)).toBe('▸ x');
     await h.press('a', 'X', KEYS.enter);

@@ -17,7 +17,9 @@ Terminal app (Node, TypeScript, Ink) that manages AI prompt drafts in a
 - TDD. Store and model logic get unit tests; UI gets
   `ink-testing-library` tests; startup gets integration tests in `./tmp`.
 - Keep `src/store` and `src/model` free of Ink imports.
-- Tags never contain commas. Tag comparison is case-insensitive.
+- New tags match `[A-Za-z0-9_-]+` (enforced on input, not on load). Tag
+  comparison is case-insensitive. Titles never contain tabs, because
+  `--list` output is tab-separated.
 - Done state is in memory only. Deletion happens only on Quit, after confirmation.
 - Every file written to `.prompts` uses the `key: value` syntax from
   file-format.md and ends with a newline. The only exception is the

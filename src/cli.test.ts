@@ -60,4 +60,69 @@ describe('cli startup', () => {
     expect(r.status).toBe(1);
     expect(r.stderr).toBe('settings.txt: unknown key "nope"\nindex/20260101-000000.txt: missing title\n');
   });
+
+  describe('flags', () => {
+    const cli = (args: string[], input?: string) =>
+      spawnSync('node', ['--import', 'tsx', 'src/cli.tsx', ...args], { encoding: 'utf8', input });
+    const store = () => {
+      const dir = path.join(ROOT, 'store');
+      fs.mkdirSync(path.join(dir, '.prompts', 'index'), { recursive: true });
+      fs.mkdirSync(path.join(dir, '.prompts', 'text'));
+      fs.writeFileSync(path.join(dir, '.prompts', 'settings.txt'), '');
+      fs.writeFileSync(path.join(dir, '.prompts', 'sort.txt'), '');
+      return dir;
+    };
+
+    it('creates, writes, shows, and lists without a terminal', () => {
+      const dir = store();
+      const c = cli([dir, '--create', '--title', 'First', '--tags=a,b'], 'hello');
+      expect(c.stderr).toBe('');
+      expect(c.status).toBe(0);
+      const id = c.stdout.trim();
+      expect(id).toMatch(/^\d{8}-\d{6}$/);
+      expect(cli([`--show=${id}`, dir]).stdout).toBe('hello');
+      expect(cli([dir, `--write=${id}`], 'bye\n').status).toBe(0);
+      expect(cli([dir, '--show', id]).stdout).toBe('bye\n');
+      expect(cli([dir, '--list', '--filter=B']).stdout).toBe(`${id}\tFirst\ta,b\n`);
+    });
+
+    it('exits quietly when the reader closes the pipe early', () => {
+      const dir = store();
+      const id = cli([dir, '--create', '--title=Big'], 'x'.repeat(4_000_000)).stdout.trim();
+      const r = spawnSync('sh', ['-c', `node --import tsx src/cli.tsx "$0" --show=${id} | head -c 1 >/dev/null`, dir], {
+        encoding: 'utf8',
+      });
+      expect(r.stderr).toBe('');
+    });
+
+    it('defaults to the current directory', () => {
+      const dir = store();
+      const r = spawnSync('node', ['--import', 'tsx', path.resolve('src/cli.tsx'), '--list'], { encoding: 'utf8', cwd: dir });
+      expect(r).toMatchObject({ status: 0, stdout: '', stderr: '' });
+    });
+
+    it('prints help', () => {
+      const r = cli(['--help']);
+      expect(r.status).toBe(0);
+      expect(r.stdout).toMatch(/^Usage:/);
+    });
+
+    it('exits 2 on usage errors and 1 on bad input', () => {
+      const dir = store();
+      const u = cli([dir, '--list', '--title=x']);
+      expect(u.status).toBe(2);
+      expect(u.stderr).toBe('--title requires --create\nRun prompts --help for usage.\n');
+      const b = cli([dir, '--show=20990101-000000']);
+      expect(b.status).toBe(1);
+      expect(b.stderr).toBe('no prompt with id "20990101-000000"\n');
+    });
+
+    it('does not set up a missing .prompts', () => {
+      const dir = path.join(ROOT, 'empty');
+      fs.mkdirSync(dir);
+      const r = cli([dir, '--create', '--title=x'], '');
+      expect(r.status).toBe(1);
+      expect(fs.existsSync(path.join(dir, '.prompts'))).toBe(false);
+    });
+  });
 });

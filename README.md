@@ -25,6 +25,17 @@ none, `prompts` asks whether to create it.
 Everything lives in `.prompts` as plain text, so commit it alongside your
 project. See [docs/file-format.md](docs/file-format.md).
 
+## Scripts and AI agents
+
+Flags run one command without the UI. `prompts --help` explains them.
+
+```sh
+prompts --list --filter=work          # ID<TAB>title<TAB>tags per line
+prompts --show=20260921-143005        # print the text
+echo "New text" | prompts --write=20260921-143005
+printf 'Summarize this.' | prompts --create --title="Summarizer" --tags=work
+```
+
 ## Screen layout
 
 ```

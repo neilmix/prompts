@@ -7,7 +7,7 @@ import { initialState, reduce } from '../model/state.js';
 import type { AppSettings, Message } from '../model/types.js';
 import type { Fs } from '../store/fs.js';
 import { loadStore, type Store } from '../store/open.js';
-import { createPrompt, deletePrompt, ensureText, readText, savePrompt } from '../store/prompts.js';
+import { cleanTitle, createPrompt, deletePrompt, ensureText, readText, savePrompt } from '../store/prompts.js';
 import { resolveEditor, saveSettings } from '../store/settings.js';
 import { moveInOrder, saveSort } from '../store/sort.js';
 import { Confirm, CONFIRM_HEIGHT } from './controls/Confirm.js';
@@ -84,7 +84,7 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
       }, null),
     rename: (id, title) =>
       guarded(() => {
-        const prompt = { ...state.prompts.get(id)!, title: title.trim() };
+        const prompt = { ...state.prompts.get(id)!, title: cleanTitle(title) };
         savePrompt(fs, paths, prompt);
         dispatch({ type: 'upsertPrompt', prompt });
       }, undefined),

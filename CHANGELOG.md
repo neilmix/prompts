@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Command-line flags for scripts and AI agents: `--list [--filter=TAGS]`,
+  `--show=ID`, `--write=ID` and `--create --title=T [--tags=TAGS]`
+  (content on stdin), and `--help`. They need no terminal.
+- New tags may contain only letters, numbers, `-` and `_`.
+- Tabs in titles become spaces, including tabs in pasted text.
+
 - Initial documentation.
 - Initial implementation: list view, New, Open (Edit, Title), Complete, Tag,
   Filter, Settings, Leave.

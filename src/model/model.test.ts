@@ -123,6 +123,9 @@ describe('tags', () => {
   it('validates', () => {
     expect(validateTag('ok')).toBeNull();
     expect(validateTag('  ')).toMatch(/empty/);
-    expect(validateTag('a,b')).toMatch(/comma/);
+    expect(validateTag(' a_B-9 ')).toBeNull();
+    for (const bad of ['a,b', 'a b', 'a.b', 'é', 'a/b']) {
+      expect(validateTag(bad)).toBe('tags use only letters, numbers, - and _');
+    }
   });
 });

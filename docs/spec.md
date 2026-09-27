@@ -10,8 +10,11 @@ nothing.
 
 ## 1. Startup
 
-1. Resolve the target directory: the first CLI argument, else the current
-   working directory. A missing directory is an error.
+1. Parse the arguments: at most one positional argument (the target
+   directory) plus the flags in section 11. With any command flag, run that
+   command instead of the steps below. Resolve the target directory: the
+   positional argument, else the current working directory. A missing
+   directory is an error.
 2. If `<dir>/.prompts` exists, load and validate it. Validation failures
    (see file-format.md, "Validation") print one line per problem to stderr
    and exit with status 1. Nothing is rendered.
@@ -130,7 +133,7 @@ Mouse, when the terminal reports it: wheel up / down moves the selection
 - `/` opens the search entry (below).
 
 **New (n)**: title bar `New prompt`, a `Title` entry. Enter with a
-non-empty (trimmed) title creates the prompt with a new ID, an index file,
+non-empty (trimmed) title, tabs replaced by spaces, creates the prompt with a new ID, an index file,
 and an empty text file, places it first in the sort order, selects it,
 then immediately runs the editor on it (as Edit does). On return, the list
 view is shown. Enter with an empty title does nothing. Escape cancels.
@@ -178,7 +181,8 @@ filter (both must match). Search is not persisted.
   file, then restores the screen and reloads the text. The editor's exit
   status is ignored.
 - **Retitle**: `Title` entry pre-filled with the current title. Enter with a
-  non-empty title saves it to the index file. Empty does nothing. Escape
+  non-empty title saves it, trimmed and with tabs replaced by spaces, to the
+  index file. Empty does nothing. Escape
   cancels.
 - **Tag**: opens the Tag view for this prompt. Leaving the Tag view returns
   to the Open view.
@@ -204,12 +208,13 @@ filter (both must match). Search is not persisted.
   prompts that starts with the text (case-insensitive) is shown dim after
   the cursor, with a dim `Tab completes` hint at the right of the line. Tab
   or Right accepts it. Enter commits: the tag is trimmed, must be non-empty
-  and contain no comma, and is added unless the prompt already has it
+  and contain only letters, digits, `-` and `_` (`[A-Za-z0-9_-]+`), and is added unless the prompt already has it
   (case-insensitive). When an existing tag matches case-insensitively, the
   existing spelling is used. A successful commit, including a duplicate,
   closes the entry, stays in the Tag view, and selects the tag (the new
-  one, or the existing match). A comma shows an error and closes the entry
-  but stays in the Tag view. Escape cancels.
+  one, or the existing match). Any other character shows the error
+  `tags use only letters, numbers, - and _`, closes the entry, and stays
+  in the Tag view. Escape cancels.
 - **Remove**, Delete, Backspace: remove the selected tag. No-op when empty.
 - Changes are written to the index file immediately.
 
@@ -250,7 +255,8 @@ filter (both must match). Search is not persisted.
 
 ## 7. Text entries
 
-- Printable characters insert at the cursor. Left/Right move the cursor.
+- Printable characters insert at the cursor. Tabs inside pasted text are
+  inserted as spaces; a lone Tab key is not text (below). Left/Right move the cursor.
   Backspace and Delete edit. Home/End jump.
 - Enter commits, Escape cancels. Tab accepts a completion when one is
   shown and is otherwise ignored.
@@ -275,6 +281,40 @@ the terminal.
 A write failure, a clipboard failure, a reload failure, or a tag
 validation problem shows one red line above the buttons. `Copied` shows in
 green. The message disappears on the next key press.
+
+## 11. Command-line flags
+
+For scripts and AI agents. Flags never render the UI, need no terminal,
+never prompt, and never create `.prompts`. The positional directory may
+appear before or after the flags. A flag's value is given as
+`--flag=value` or `--flag value`.
+
+| Command | Output |
+| --- | --- |
+| `--list [--filter=TAGS]` | One line per prompt in display order (section 6): `ID<TAB>title<TAB>tags`, tags joined by `,` with no spaces, empty when none. No header. `--filter` keeps prompts that have every listed tag, case-insensitively, as the Filter view does. |
+| `--show=ID` | The text file exactly as stored; nothing when the text file is missing. |
+| `--write=ID` | Replaces the text file with stdin exactly as given. No output. |
+| `--create --title=TITLE [--tags=TAGS]` | Creates a prompt as New does (first in the sort order), with the text from stdin exactly as given, and prints `ID` and a newline. Tabs in the title become spaces; the title is trimmed. Tags reuse an existing tag's spelling when one matches case-insensitively; duplicates are dropped. |
+| `--help` | Usage text on stdout, covering every flag, the output formats, the exit codes, and one example per command. |
+
+`TAGS` is comma-separated; entries are trimmed and empty ones dropped.
+Each tag must satisfy the Tag view's rule.
+
+Errors print to stderr:
+
+- Exit 2, followed by `Run prompts --help for usage.`: an unknown flag,
+  more than one command, a missing value, `--filter` without `--list`,
+  `--title` or `--tags` without `--create`, `--create` without `--title`,
+  or more than one positional argument. `--help` wins over all of these
+  except unknown flags and missing values.
+- Exit 1, one line per problem: no `.prompts` (`<dir>: no .prompts
+  directory; run prompts in a terminal to set one up`), validation
+  failures (as in section 1), an unknown ID (`no prompt with id "ID"`), an
+  invalid tag (`--tags: "a b": tags use only letters, numbers, - and _`),
+  an empty title, or a title with a line break.
+
+Stdin is read only by `--write` and `--create`, and only after the other
+checks pass. A reader that closes stdout early (`| head`) is not an error.
 
 ## Decisions made without user input
 
