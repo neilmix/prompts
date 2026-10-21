@@ -252,6 +252,20 @@ describe('New', () => {
     expect(h.edits).toEqual([]);
   });
 
+  it('scrolls a long title to keep the cursor in view, marking hidden text', async () => {
+    h = await mount();
+    const title = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEF';
+    await h.press('n', title);
+    // 40 columns: "Title: " leaves 33 cells. The entry is the last line.
+    expect(line(11)).toBe('Title: …lmnopqrstuvwxyz0123456789ABCDEF');
+    await h.press(KEYS.home);
+    expect(line(11)).toBe('Title: abcdefghijklmnopqrstuvwxyz012345…');
+    await h.press(KEYS.end, ...Array(36).fill(KEYS.left));
+    expect(line(11)).toBe('Title: …ghijklmnopqrstuvwxyz0123456789A…');
+    await h.press(KEYS.enter);
+    expect(line(0)).toBe(`▸ • ${title.slice(0, 36)}`);
+  });
+
   it('edits text with cursor keys', async () => {
     h = await mount();
     await h.press('n', 'a', 'c', KEYS.left, 'b', KEYS.end, 'd', KEYS.home, KEYS.delete, KEYS.end, KEYS.backspace, KEYS.enter);

@@ -286,6 +286,9 @@ and closes the entry. Search is not persisted.
   Backspace and Delete edit. Home/End jump.
 - Enter commits, Escape cancels. Tab accepts a completion when one is
   shown and is otherwise ignored.
+- When the text is wider than the line, the entry scrolls sideways as
+  little as needed to keep the cursor in view. A dim `…` at either end
+  marks hidden text. The `Tab completes` hint is omitted while scrolled.
 - No other key binding, including shortcut letters, is active while an
   entry is open, except ^C.
 

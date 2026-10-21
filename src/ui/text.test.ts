@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { layoutRows, listViewport, rangeLabel, scrollToShow, wrapText } from './text.js';
+import { entryOffset, layoutRows, listViewport, rangeLabel, scrollToShow, wrapText } from './text.js';
 
 describe('wrapText', () => {
   it('wraps on spaces', () => {
@@ -84,5 +84,39 @@ describe('rangeLabel', () => {
     expect(rangeLabel(0, 5, 5)).toBeNull();
     expect(rangeLabel(2, 5, 12)).toBe('3–7 of 12');
     expect(rangeLabel(10, 5, 12)).toBe('11–12 of 12');
+  });
+});
+
+describe('entryOffset', () => {
+  // A clipped edge shows `…`, so the cursor stays one cell clear of it.
+  it('does not scroll when everything fits', () => {
+    expect(entryOffset(10, 9, 10, 0)).toBe(0);
+    expect(entryOffset(10, 0, 10, 5)).toBe(0);
+  });
+
+  it('follows the cursor at the end, with the start clipped', () => {
+    // 20 cells in 10: cursor on the last cell, no right marker needed.
+    expect(entryOffset(20, 19, 10, 0)).toBe(10);
+  });
+
+  it('keeps the offset while the cursor is in view', () => {
+    expect(entryOffset(20, 15, 10, 10)).toBe(10);
+    expect(entryOffset(20, 11, 10, 10)).toBe(10);
+  });
+
+  it('scrolls left just enough, keeping clear of the left marker', () => {
+    expect(entryOffset(20, 10, 10, 10)).toBe(9);
+    expect(entryOffset(20, 1, 10, 10)).toBe(0);
+    expect(entryOffset(20, 0, 10, 10)).toBe(0);
+  });
+
+  it('scrolls right just enough, keeping clear of the right marker', () => {
+    // Cells 0-9 show 0-8 plus a marker; cursor 9 needs a shift.
+    expect(entryOffset(20, 8, 10, 0)).toBe(0);
+    expect(entryOffset(20, 9, 10, 0)).toBe(1);
+  });
+
+  it('never leaves empty space after the end', () => {
+    expect(entryOffset(12, 11, 10, 8)).toBe(2);
   });
 });

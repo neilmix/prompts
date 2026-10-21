@@ -56,7 +56,8 @@ src/
     keys.ts           toAction: Ink (input, key) → named action, incl. wheel;
                       vimAction: j/k/g/G mapping
     text.ts           wrapText, listViewport (scroll to keep selection),
-                      rows with a styled tail (tag chips), chips, rangeLabel
+                      rows with a styled tail (tag chips), chips, rangeLabel,
+                      entryOffset (sideways scroll of a text entry)
     panes/
       TitleBar.tsx    inverse bar: `View › Title` left, detail right
       CommandPane.tsx separator, message line, underlined-shortcut buttons
@@ -70,7 +71,8 @@ src/
       SettingsModal.tsx
     controls/
       ListBody.tsx    renders viewport rows with gutter and focus styling
-      TextInput.tsx   single-line entry with completion hint
+      TextInput.tsx   single-line entry with completion hint; scrolls
+                      sideways to keep the cursor in view
     hooks/
       useCommands.ts  focus model: body + buttons; Left/Right/Tab/Enter/letter
       useKeyActions.ts useInput wrapper feeding toAction

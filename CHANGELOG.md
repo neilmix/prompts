@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fix: typing past the edge of a text entry (such as a long title) went
+  off screen. The entry now scrolls to keep the cursor in view, with `…`
+  marking hidden text.
 - `.prompts` layout version 1: a `VERSION` file, and each prompt is one
   file, `items/<id>.md`, with its title and tags at the top and its text
   after two empty lines. A `.prompts` without `VERSION` (version 0, with

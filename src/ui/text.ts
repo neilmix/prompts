@@ -109,3 +109,18 @@ export function rangeLabel(top: number, shown: number, total: number): string | 
   if (total <= shown || shown === 0) return null;
   return `${top + 1}–${Math.min(total, top + shown)} of ${total}`;
 }
+
+/**
+ * First visible cell of a one-line entry `length` cells long shown in
+ * `width` cells, scrolling as little as possible from `offset` to keep
+ * `cursor` in view. A clipped edge is drawn as `…`, so the cursor stays one
+ * cell clear of it.
+ */
+export function entryOffset(length: number, cursor: number, width: number, offset: number): number {
+  if (length <= width) return 0;
+  let o = Math.max(0, Math.min(offset, length - width));
+  if (cursor < o + (o > 0 ? 1 : 0)) o = Math.max(0, cursor - 1);
+  const rightMarker = o + width < length;
+  if (cursor > o + width - 1 - (rightMarker ? 1 : 0)) o = Math.min(length - width, cursor - width + 2);
+  return o;
+}
