@@ -11,10 +11,10 @@ import { CommandPane, commandPaneHeight } from '../panes/CommandPane.js';
 import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
 import { listViewport } from '../text.js';
 
-export function SettingsModal({ state, dispatch, actions, size, overlay }: ViewProps) {
+export function SettingsModal({ state, dispatch, actions, size }: ViewProps) {
   const [selected, setSelected] = useState(0);
   const [editing, setEditing] = useState<SettingKey | null>(null);
-  const bottom = overlay ? overlay.height : editing ? TEXT_INPUT_HEIGHT : 0;
+  const bottom = editing ? TEXT_INPUT_HEIGHT : 0;
   const listHeight = Math.max(0, size.rows - TITLE_BAR_HEIGHT - commandPaneHeight(state.message) - bottom);
   const items = SETTING_KEYS.map((k) => `${k}: ${state.settings[k] ?? ''}`);
   const view = listViewport(items, selected, listHeight, size.columns - GUTTER, 0);
@@ -40,7 +40,7 @@ export function SettingsModal({ state, dispatch, actions, size, overlay }: ViewP
       case 'bottom': case 'end': setSelected(SETTING_KEYS.length - 1); break;
       case 'char': if (a.text === 'q') back(); break;
     }
-  }, editing === null && overlay === null);
+  }, editing === null);
 
   return (
     <Box flexDirection="column" height={size.rows} width={size.columns}>
@@ -58,7 +58,6 @@ export function SettingsModal({ state, dispatch, actions, size, overlay }: ViewP
           onCancel={() => setEditing(null)}
         />
       )}
-      {overlay?.node}
       <CommandPane buttons={commands.buttons} focus={commands.focus} message={state.message} columns={size.columns} />
     </Box>
   );

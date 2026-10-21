@@ -1,4 +1,5 @@
 import * as nodeFs from 'node:fs';
+import * as os from 'node:os';
 import * as nodePath from 'node:path';
 
 /** Minimal synchronous filesystem adapter so the store is testable in memory. */
@@ -10,6 +11,11 @@ export interface Fs {
   writeFile(path: string, text: string): void;
   mkdir(path: string): void;
   unlink(path: string): void;
+  rename(from: string, to: string): void;
+  /** Remove an empty directory. */
+  rmdir(path: string): void;
+  /** Create a new, uniquely named directory for temporary files and return its path. */
+  mkdtemp(prefix: string): string;
 }
 
 export const realFs: Fs = {
@@ -20,6 +26,9 @@ export const realFs: Fs = {
   writeFile: (p, text) => nodeFs.writeFileSync(p, text, 'utf8'),
   mkdir: (p) => nodeFs.mkdirSync(p, { recursive: true }),
   unlink: (p) => nodeFs.unlinkSync(p),
+  rename: (from, to) => nodeFs.renameSync(from, to),
+  rmdir: (p) => nodeFs.rmdirSync(p),
+  mkdtemp: (prefix) => nodeFs.mkdtempSync(nodePath.join(os.tmpdir(), prefix)),
 };
 
 export class MemoryFs implements Fs {
@@ -29,7 +38,10 @@ export class MemoryFs implements Fs {
   constructor(init: Record<string, string | null> = {}) {
     for (const [p, v] of Object.entries(init)) {
       if (v === null) this.mkdir(p);
-      else this.writeFile(p, v);
+      else {
+        this.mkdir(nodePath.posix.dirname(norm(p)));
+        this.writeFile(p, v);
+      }
     }
   }
 
@@ -61,9 +73,10 @@ export class MemoryFs implements Fs {
     return v;
   }
 
+  /** Like the real thing, needs the parent directory to exist. */
   writeFile(p: string, text: string): void {
     const n = norm(p);
-    this.mkdir(nodePath.posix.dirname(n));
+    if (!this.dirs.has(nodePath.posix.dirname(n))) throw new Error(`ENOENT: ${p}`);
     this.files.set(n, text);
   }
 
@@ -77,6 +90,26 @@ export class MemoryFs implements Fs {
 
   unlink(p: string): void {
     if (!this.files.delete(norm(p))) throw new Error(`ENOENT: ${p}`);
+  }
+
+  rename(from: string, to: string): void {
+    this.writeFile(to, this.readFile(from));
+    this.unlink(from);
+  }
+
+  rmdir(p: string): void {
+    const dir = norm(p);
+    if (!this.dirs.has(dir)) throw new Error(`ENOENT: ${p}`);
+    if (this.readdir(dir).length > 0) throw new Error(`ENOTEMPTY: ${p}`);
+    this.dirs.delete(dir);
+  }
+
+  private temps = 0;
+
+  mkdtemp(prefix: string): string {
+    const dir = `/tmp/${prefix}${++this.temps}`;
+    this.mkdir(dir);
+    return dir;
   }
 }
 

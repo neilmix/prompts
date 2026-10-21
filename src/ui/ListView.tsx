@@ -10,35 +10,34 @@ import { vimAction, type KeyAction } from './keys.js';
 import { CommandPane, commandPaneHeight } from './panes/CommandPane.js';
 import { chips, listViewport, rangeLabel } from './text.js';
 
-export function listHeader(state: { search: string; filter: string[] }, shown: number, total: number): string | undefined {
-  const parts: string[] = [];
-  if (state.search !== '') parts.push(`Search: ${state.search}`);
-  if (state.filter.length > 0) parts.push(`Filter: ${state.filter.join(', ')}`);
-  if (parts.length === 0) return undefined;
-  parts.push(`${shown} of ${total}`);
-  return parts.join(' · ');
+/** The yellow first body line while a search is active. */
+export function listHeader(search: string, shown: number, total: number): string | undefined {
+  return search === '' ? undefined : `Search: ${search} · ${shown} of ${total}`;
 }
 
 /** Starts each title row; wrapped continuation rows are indented by its width. */
-const BULLET = '• ';
+export const BULLET = '• ';
 
-export const doneLabel = (done: boolean): string => (done ? '✓ Done' : 'Done');
+export const archiveLabel = (marked: boolean): string => (marked ? '✓ Archive' : 'Archive');
 
-export function ListView({ state, dispatch, actions, size, overlay }: ViewProps) {
+/** The `/` button that opens the search entry. */
+export const SEARCH_LABEL = '/Search';
+
+export function ListView({ state, dispatch, actions, size }: ViewProps) {
   const [searching, setSearching] = useState(false);
   const [moving, setMoving] = useState(false);
   const topRef = useRef(0);
   const ids = visibleIds(state);
   const selected = selectedPrompt(state);
   const selectedIndex = selected ? ids.indexOf(selected.id) : -1;
-  const header = listHeader(state, ids.length, state.prompts.size);
-  const bottom = overlay ? overlay.height : searching ? TEXT_INPUT_HEIGHT : 0;
+  const header = listHeader(state.search, ids.length, state.prompts.size);
+  const bottom = searching ? TEXT_INPUT_HEIGHT : 0;
   const listHeight = Math.max(0, size.rows - commandPaneHeight(state.message) - bottom);
   const bodyHeight = Math.max(0, listHeight - (header === undefined ? 0 : 1));
 
   const items = ids.map((id) => {
     const p = state.prompts.get(id)!;
-    return { text: (state.done.has(id) ? '✓ ' : '') + p.title, tail: chips(p.tags) };
+    return { text: (state.archiving.has(id) ? '✓ ' : '') + p.title, tail: chips(p.tags) };
   });
   const view = listViewport(items, selectedIndex, bodyHeight, size.columns - GUTTER, topRef.current, BULLET);
   topRef.current = view.top;
@@ -52,12 +51,13 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
       { label: 'New', shortcut: 'n', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'new' } }) },
       { label: 'Open', shortcut: 'o', onActivate: open },
       { label: 'Copy', shortcut: 'c', onActivate: withSelected((id) => void actions.copy(id)) },
-      { label: doneLabel(selected !== null && state.done.has(selected.id)), shortcut: 'd', onActivate: withSelected((id) => dispatch({ type: 'toggleDone', id })) },
+      { label: SEARCH_LABEL, shortcut: '/', onActivate: () => setSearching(true) },
+      { label: archiveLabel(selected !== null && state.archiving.has(selected.id)), shortcut: 'a', onActivate: withSelected((id) => dispatch({ type: 'toggleArchiving', id })) },
       { label: 'Tag', shortcut: 't', onActivate: withSelected((id) => dispatch({ type: 'openModal', modal: { kind: 'tag', id, from: 'list' } })) },
-      { label: 'Filter', shortcut: 'f', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'filter' } }) },
+      { label: 'View-archive', shortcut: 'v', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'archive' } }) },
       { label: 'Settings', shortcut: 's', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'settings' } }) },
       { label: 'Reload', shortcut: 'r', onActivate: () => actions.reload() },
-      { label: 'Quit', shortcut: 'q', onActivate: () => actions.requestQuit() },
+      { label: 'Quit', shortcut: 'q', onActivate: () => actions.quit() },
     ],
     open,
   );
@@ -94,16 +94,10 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
       case 'space':
         if (selected) setMoving(true);
         break;
-      case 'escape':
-        dispatch({ type: 'setSearch', search: '' });
-        dispatch({ type: 'clearFilter' });
-        break;
-      case 'char':
-        if (a.text === '/') setSearching(true);
-        break;
+      case 'escape': dispatch({ type: 'setSearch', search: '' }); break;
       case 'wheel': dispatch({ type: 'move', by: a.by }); break;
     }
-  }, !searching && overlay === null);
+  }, !searching);
 
   return (
     <Box flexDirection="column" height={size.rows} width={size.columns}>
@@ -121,7 +115,6 @@ export function ListView({ state, dispatch, actions, size, overlay }: ViewProps)
           }}
         />
       )}
-      {overlay?.node}
       <CommandPane
         buttons={commands.buttons}
         focus={commands.focus}

@@ -1,7 +1,7 @@
 import { render } from 'ink-testing-library';
 import { describe, expect, it } from 'vitest';
 import { KEYS } from '../test/keys.js';
-import { Setup, SETUP_QUESTION } from './Setup.js';
+import { Setup, SETUP_QUESTION, UPGRADE_QUESTION } from './Setup.js';
 
 const tick = (ms = 5) => new Promise((r) => setTimeout(r, ms));
 
@@ -11,6 +11,12 @@ describe('Setup', () => {
     const frame = (inst.lastFrame() ?? '').replace(/\x1b\[[0-9;]*m/g, '');
     expect(frame).toContain('/some/dir');
     expect(frame).toContain(`${SETUP_QUESTION} (y/n)`);
+    inst.unmount();
+  });
+
+  it('asks the upgrade question when given it', () => {
+    const inst = render(<Setup dir="/d" question={UPGRADE_QUESTION} onAnswer={() => undefined} />);
+    expect(inst.lastFrame()?.replace(/\x1b\[[0-9;]*m/g, '')).toContain('Upgrade .prompts to version 1? (y/n)');
     inst.unmount();
   });
 

@@ -20,10 +20,16 @@ Terminal app (Node, TypeScript, Ink) that manages AI prompt drafts in a
 - New tags match `[A-Za-z0-9_-]+` (enforced on input, not on load). Tag
   comparison is case-insensitive. Titles never contain tabs, because
   `--list` output is tab-separated.
-- Done state is in memory only. Deletion happens only on Quit, after confirmation.
+- Archive marks are in memory only. In the app, marked prompts move to `archive/`
+  only on Quit. No prompt is ever deleted.
 - Every file written to `.prompts` uses the `key: value` syntax from
-  file-format.md and ends with a newline. The only exception is the
-  `README.md` written at setup, which is Markdown.
+  file-format.md and ends with a newline. Exceptions: `README.md`
+  (Markdown), `VERSION` (a bare number), and the text part of an item file,
+  stored exactly as given.
+- A change to the on-disk layout bumps `STORE_VERSION` and adds an upgrade
+  step (`src/store/upgrade.ts`, file-format.md).
+- Store changes go through `src/ops.ts`; every app capability that makes
+  sense without a terminal gets a `command.ts` table entry.
 - Do not add settings, keys, or commands beyond the spec without asking.
 - Update `CHANGELOG.md` under Unreleased for user-visible changes.
 - Import sibling `.tsx` modules with a `.js` extension. A `.jsx` extension

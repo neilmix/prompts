@@ -8,37 +8,49 @@ import { vimAction } from '../keys.js';
 import { CommandPane, commandPaneHeight } from '../panes/CommandPane.js';
 import { Separator } from '../panes/Separator.js';
 import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
-import { doneLabel } from '../ListView.js';
+import { archiveLabel } from '../ListView.js';
 import { chips, rangeLabel, wrapText } from '../text.js';
 
-export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewProps & { id: string }) {
+/**
+ * A prompt's text. `archived` shows an archived prompt read-only, with
+ * Restore and Back (to the archive view) as the only commands.
+ */
+export function OpenModal({ state, dispatch, actions, size, id, archived = false }: ViewProps & { id: string; archived?: boolean }) {
   const { suspendTerminal } = useApp();
-  const prompt = state.prompts.get(id)!;
-  const [text, setText] = useState(() => actions.readText(id));
+  const prompt = (archived ? state.archived : state.prompts).get(id)!;
   const [top, setTop] = useState(0);
   const [editingTitle, setEditingTitle] = useState(false);
 
-  const bottom = overlay ? overlay.height : editingTitle ? TEXT_INPUT_HEIGHT : 0;
+  const bottom = editingTitle ? TEXT_INPUT_HEIGHT : 0;
   const bodyHeight = Math.max(0, size.rows - TITLE_BAR_HEIGHT - 1 - commandPaneHeight(state.message) - bottom);
-  const lines = wrapText(text.replace(/\r?\n$/, ''), size.columns);
+  const lines = wrapText(prompt.text.replace(/\r?\n$/, ''), size.columns);
   const maxTop = Math.max(0, lines.length - bodyHeight);
   const shownTop = Math.min(top, maxTop);
   const scroll = (by: number) => setTop(Math.max(0, Math.min(maxTop, shownTop + by)));
 
-  const back = () => dispatch({ type: 'closeModal' });
-  const edit = () => {
-    void actions.edit(id, suspendTerminal).then(() => setText(actions.readText(id)));
+  const back = () =>
+    archived ? dispatch({ type: 'openModal', modal: { kind: 'archive' } }) : dispatch({ type: 'closeModal' });
+  const edit = () => void actions.edit(id, suspendTerminal);
+  // Back first: opening a view clears the message that restore sets.
+  const restore = () => {
+    back();
+    actions.restore(id);
   };
   const commands = useCommands(
-    [
-      { label: 'Edit', shortcut: 'e', onActivate: edit },
-      { label: 'Retitle', shortcut: 'r', onActivate: () => setEditingTitle(true) },
-      { label: 'Tag', shortcut: 't', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'tag', id, from: 'open' } }) },
-      { label: 'Copy', shortcut: 'c', onActivate: () => void actions.copy(id) },
-      { label: doneLabel(state.done.has(id)), shortcut: 'd', onActivate: () => dispatch({ type: 'toggleDone', id }) },
-      { label: 'Back', shortcut: 'b', onActivate: back },
-    ],
-    edit,
+    archived
+      ? [
+          { label: 'Restore', shortcut: 'r', onActivate: restore },
+          { label: 'Back', shortcut: 'b', onActivate: back },
+        ]
+      : [
+          { label: 'Edit', shortcut: 'e', onActivate: edit },
+          { label: 'Retitle', shortcut: 'r', onActivate: () => setEditingTitle(true) },
+          { label: 'Tag', shortcut: 't', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'tag', id, from: 'open' } }) },
+          { label: 'Copy', shortcut: 'c', onActivate: () => void actions.copy(id) },
+          { label: archiveLabel(state.archiving.has(id)), shortcut: 'a', onActivate: () => dispatch({ type: 'toggleArchiving', id }) },
+          { label: 'Back', shortcut: 'b', onActivate: back },
+        ],
+    archived ? () => {} : edit,
   );
 
   useKeyActions((raw) => {
@@ -55,15 +67,15 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
       case 'char': if (a.text === 'q') back(); break;
       case 'wheel': scroll(a.by); break;
     }
-  }, !editingTitle && overlay === null);
+  }, !editingTitle);
 
   const shown = lines.slice(shownTop, shownTop + bodyHeight);
   return (
     <Box flexDirection="column" height={size.rows} width={size.columns}>
-      <TitleBar title={`Open › ${prompt.title}`} tail={chips(prompt.tags)} right={id} columns={size.columns} />
+      <TitleBar title={`${archived ? 'Archived' : 'Open'} › ${prompt.title}`} tail={chips(prompt.tags)} right={id} columns={size.columns} />
       <Box flexDirection="column" height={bodyHeight} overflow="hidden">
-        {text === '' ? (
-          <Text color="gray">empty · e to edit</Text>
+        {prompt.text === '' ? (
+          <Text color="gray">{archived ? 'empty' : 'empty · e to edit'}</Text>
         ) : (
           shown.map((l, i) => (
             <Text key={shownTop + i} wrap="truncate">
@@ -72,7 +84,7 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
           ))
         )}
       </Box>
-      <Separator columns={size.columns} label={actions.textPath(id)} right={rangeLabel(shownTop, shown.length, lines.length)} />
+      <Separator columns={size.columns} label={archived ? actions.archivePath(id) : actions.itemPath(id)} right={rangeLabel(shownTop, shown.length, lines.length)} />
       {editingTitle && (
         <TextInput
           columns={size.columns}
@@ -85,7 +97,6 @@ export function OpenModal({ state, dispatch, actions, size, overlay, id }: ViewP
           onCancel={() => setEditingTitle(false)}
         />
       )}
-      {overlay?.node}
       <CommandPane buttons={commands.buttons} focus={commands.focus} message={state.message} columns={size.columns} />
     </Box>
   );

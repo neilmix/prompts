@@ -147,3 +147,4 @@ tmp/
 
 node_modules/
 dist/
+.osgrep

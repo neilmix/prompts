@@ -8,8 +8,10 @@ export type Modal =
   | { kind: 'open'; id: string }
   /** `from` is the view Back returns to. */
   | { kind: 'tag'; id: string; from: 'list' | 'open' }
-  | { kind: 'filter' }
-  | { kind: 'settings' };
+  | { kind: 'settings' }
+  | { kind: 'archive' }
+  /** An archived prompt's text, read-only. Back returns to the archive view. */
+  | { kind: 'archived'; id: string };
 
 export interface Message {
   kind: 'error' | 'status';
@@ -18,14 +20,14 @@ export interface Message {
 
 export interface State {
   prompts: Map<string, Prompt>;
+  archived: Map<string, Prompt>;
   sort: string[];
   settings: AppSettings;
   selectedId: string | null;
-  /** Checked filter tags, in stored spelling. */
-  filter: string[];
-  /** Title substring search, case-insensitive. Empty means none. */
+  /** List view search (see searchTokens). Empty means none. */
   search: string;
-  done: Set<string>;
+  /** Ids marked for archiving on Quit. */
+  archiving: Set<string>;
   modal: Modal | null;
   message: Message | null;
 }

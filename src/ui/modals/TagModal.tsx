@@ -11,13 +11,13 @@ import { CommandPane, commandPaneHeight } from '../panes/CommandPane.js';
 import { TitleBar, TITLE_BAR_HEIGHT } from '../panes/TitleBar.js';
 import { listViewport } from '../text.js';
 
-export function TagModal({ state, dispatch, actions, size, overlay, id, from }: ViewProps & { id: string; from: 'list' | 'open' }) {
+export function TagModal({ state, dispatch, actions, size, id, from }: ViewProps & { id: string; from: 'list' | 'open' }) {
   const prompt = state.prompts.get(id)!;
   const [selected, setSelected] = useState(0);
-  const [adding, setAdding] = useState(true); // opens in add mode; Escape drops to the list
+  const [adding, setAdding] = useState(false);
   const topRef = useRef(0);
-  const existing = allTags(state.prompts.values());
-  const bottom = overlay ? overlay.height : adding ? TEXT_INPUT_HEIGHT : 0;
+  const existing = allTags([...state.prompts.values(), ...state.archived.values()]);
+  const bottom = adding ? TEXT_INPUT_HEIGHT : 0;
   const listHeight = Math.max(0, size.rows - TITLE_BAR_HEIGHT - commandPaneHeight(state.message) - bottom);
   const sel = Math.min(selected, Math.max(0, prompt.tags.length - 1));
   const view = listViewport(prompt.tags, sel, listHeight, size.columns - GUTTER, topRef.current);
@@ -59,7 +59,7 @@ export function TagModal({ state, dispatch, actions, size, overlay, id, from }: 
         else setSelected(Math.min(prompt.tags.length - 1, sel + 1));
         break;
     }
-  }, !adding && overlay === null);
+  }, !adding);
 
   return (
     <Box flexDirection="column" height={size.rows} width={size.columns}>
@@ -86,7 +86,6 @@ export function TagModal({ state, dispatch, actions, size, overlay, id, from }: 
           onCancel={() => setAdding(false)}
         />
       )}
-      {overlay?.node}
       <CommandPane buttons={commands.buttons} focus={commands.focus} message={state.message} columns={size.columns} />
     </Box>
   );

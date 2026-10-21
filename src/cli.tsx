@@ -6,9 +6,11 @@ import { parseArgs, runCommand } from './command.js';
 import { runEditor } from './editor.js';
 import { realFs } from './store/fs.js';
 import { initStore, loadStore, openStore, type Store } from './store/open.js';
+import type { Paths } from './store/paths.js';
+import { upgradeStore } from './store/upgrade.js';
 import { App, type ExitResult } from './ui/App.js';
 import { MOUSE_OFF, MOUSE_ON } from './ui/keys.js';
-import { Setup } from './ui/Setup.js';
+import { Setup, SETUP_QUESTION, UPGRADE_QUESTION } from './ui/Setup.js';
 
 export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<number> {
   const args = parseArgs(argv);
@@ -27,20 +29,16 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<numb
   let store: Store;
   const result = openStore(realFs, dir);
   if (result.ok) store = result.store;
-  else if ('errors' in result) {
-    process.stderr.write(result.errors.map((e) => `${e}\n`).join(''));
-    return 1;
-  } else {
+  else if ('errors' in result) return printErrors(result.errors);
+  else {
+    // Missing or outdated: ask, change the directory, then load it.
     if (!isTty) return needTty();
-    const setup = render(<Setup dir={dir} />, { exitOnCtrlC: false });
+    const question = 'outdated' in result ? UPGRADE_QUESTION : SETUP_QUESTION;
+    const setup = render(<Setup dir={dir} question={question} />, { exitOnCtrlC: false });
     const yes = (await setup.waitUntilExit()) === true;
     if (!yes) return 0;
-    initStore(realFs, result.paths);
-    const loaded = loadStore(realFs, result.paths);
-    if (!loaded.ok) {
-      process.stderr.write(loaded.errors.map((e) => `${e}\n`).join(''));
-      return 1;
-    }
+    const loaded = prepare(result.paths, 'outdated' in result);
+    if (!loaded.ok) return printErrors(loaded.errors);
     store = loaded.store;
   }
   if (!isTty) return needTty();
@@ -65,10 +63,26 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<numb
   } finally {
     process.stdout.write(MOUSE_OFF);
   }
-  if (outcome && outcome.deleted > 0) {
-    process.stdout.write(`Deleted ${outcome.deleted} prompt${outcome.deleted === 1 ? '' : 's'}.\n`);
+  if (outcome && outcome.archived > 0) {
+    process.stdout.write(`Archived ${outcome.archived} prompt${outcome.archived === 1 ? '' : 's'}.\n`);
   }
   return 0;
+}
+
+/** Set up or upgrade `.prompts` after the user agreed, then load it. */
+function prepare(paths: Paths, upgrade: boolean): ReturnType<typeof loadStore> {
+  if (upgrade) {
+    const r = upgradeStore(realFs, paths);
+    if (!r.ok) return r;
+  } else {
+    initStore(realFs, paths);
+  }
+  return loadStore(realFs, paths);
+}
+
+function printErrors(errors: string[]): number {
+  process.stderr.write(errors.map((e) => `${e}\n`).join(''));
+  return 1;
 }
 
 // Not readFileSync(0): it fails with EAGAIN when stdin is a non-blocking pipe.

@@ -1,10 +1,15 @@
 import { Box, Text, useApp, useInput } from 'ink';
+import { STORE_VERSION } from '../store/open.js';
 import { useKeyActions } from './hooks/useKeyActions.js';
 
 export const SETUP_QUESTION = 'This directory is not configured for prompts. Configure now?';
+export const UPGRADE_QUESTION = `Upgrade .prompts to version ${STORE_VERSION}?`;
 
-/** First-run question. Exits Ink with `true` (configure) or `false` (decline). */
-export function Setup({ dir, onAnswer }: { dir: string; onAnswer?: (yes: boolean) => void }) {
+/**
+ * A y/n question asked before the app starts: setup by default, or the
+ * upgrade. Exits Ink with `true` (yes) or `false` (decline).
+ */
+export function Setup({ dir, question = SETUP_QUESTION, onAnswer }: { dir: string; question?: string; onAnswer?: (yes: boolean) => void }) {
   const { exit } = useApp();
   const answer = (yes: boolean) => (onAnswer ?? exit)(yes);
   // toAction drops Ctrl keys, so ^C needs a raw useInput.
@@ -19,7 +24,7 @@ export function Setup({ dir, onAnswer }: { dir: string; onAnswer?: (yes: boolean
     <Box flexDirection="column">
       <Text dimColor>{dir}</Text>
       <Text>
-        {SETUP_QUESTION} <Text bold>(y/n)</Text>
+        {question} <Text bold>(y/n)</Text>
       </Text>
     </Box>
   );

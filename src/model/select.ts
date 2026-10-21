@@ -4,45 +4,53 @@ import type { Prompt, State } from './types.js';
 export const tagKey = (t: string): string => t.toLowerCase();
 export const tagEq = (a: string, b: string): boolean => tagKey(a) === tagKey(b);
 
-/** All ids in display order, ignoring the filter. */
-export function fullOrder(state: Pick<State, 'prompts' | 'sort'>): string[] {
+/** All ids in display order, ignoring the search. */
+export function fullOrder(state: { prompts: ReadonlyMap<string, Prompt>; sort: readonly string[] }): string[] {
   return displayOrder(state.prompts.keys(), state.sort);
 }
 
-export function matchesFilter(prompt: Prompt, filter: readonly string[]): boolean {
-  return filter.every((f) => prompt.tags.some((t) => tagEq(t, f)));
+/**
+ * Split a search into lowercase tokens: space-separated words, or text in
+ * double quotes taken as one token, spaces included. An unclosed quote runs
+ * to the end.
+ */
+export function searchTokens(search: string): string[] {
+  const tokens: string[] = [];
+  for (const m of search.matchAll(/"([^"]*)"?|[^\s"]+/g)) {
+    const t = (m[1] ?? m[0]).toLowerCase();
+    if (t.trim() !== '') tokens.push(t);
+  }
+  return tokens;
 }
 
+/** True when every token is in the title, the text, or a tag, case-insensitively. */
 export function matchesSearch(prompt: Prompt, search: string): boolean {
-  return search === '' || prompt.title.toLowerCase().includes(search.toLowerCase());
+  const fields = [prompt.title, prompt.text, ...prompt.tags].map((f) => f.toLowerCase());
+  return searchTokens(search).every((t) => fields.some((f) => f.includes(t)));
 }
 
-/** Ids in display order that pass the filter and search. */
-export function visibleIds(state: Pick<State, 'prompts' | 'sort' | 'filter' | 'search'>): string[] {
-  return fullOrder(state).filter((id) => {
-    const p = state.prompts.get(id)!;
-    return matchesFilter(p, state.filter) && matchesSearch(p, state.search);
-  });
+/** Ids in display order that match the search. */
+export function visibleIds(state: Pick<State, 'prompts' | 'sort' | 'search'>): string[] {
+  return fullOrder(state).filter((id) => matchesSearch(state.prompts.get(id)!, state.search));
+}
+
+/** Archived ids matching `search`, newest first. */
+export function archivedIds(archived: ReadonlyMap<string, Prompt>, search: string): string[] {
+  return [...archived.keys()].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0)).filter((id) => matchesSearch(archived.get(id)!, search));
+}
+
+/** Every id in use, archived ones included; new ids must avoid them all. */
+export function takenIds(state: { prompts: ReadonlyMap<string, Prompt>; archived: ReadonlyMap<string, Prompt> }): Set<string> {
+  return new Set([...state.prompts.keys(), ...state.archived.keys()]);
 }
 
 /** Every tag in use, deduplicated case-insensitively, first spelling wins, sorted. */
 export function allTags(prompts: Iterable<Prompt>): string[] {
-  return [...tagCounts(prompts).keys()];
-}
-
-/** Tag → number of prompts carrying it. Keys are first-seen spellings, sorted. */
-export function tagCounts(prompts: Iterable<Prompt>): Map<string, number> {
-  const seen = new Map<string, { tag: string; count: number }>();
+  const seen = new Map<string, string>();
   for (const p of prompts) {
-    for (const t of p.tags) {
-      const k = tagKey(t);
-      const e = seen.get(k);
-      if (e) e.count++;
-      else seen.set(k, { tag: t, count: 1 });
-    }
+    for (const t of p.tags) if (!seen.has(tagKey(t))) seen.set(tagKey(t), t);
   }
-  const sorted = [...seen.values()].sort((a, b) => tagKey(a.tag).localeCompare(tagKey(b.tag)));
-  return new Map(sorted.map((e) => [e.tag, e.count]));
+  return [...seen.values()].sort((a, b) => tagKey(a).localeCompare(tagKey(b)));
 }
 
 /** Existing spelling of `tag`, or `tag` itself when new. */

@@ -1,20 +1,19 @@
 import { Box, Text, useApp, useInput } from 'ink';
 import * as path from 'node:path';
-import { useReducer, useState } from 'react';
+import { useReducer } from 'react';
 import { copyToClipboard } from '../clipboard.js';
 import { fullOrder, visibleIds } from '../model/select.js';
 import { initialState, reduce } from '../model/state.js';
 import type { AppSettings, Message } from '../model/types.js';
+import * as ops from '../ops.js';
 import type { Fs } from '../store/fs.js';
 import { loadStore, type Store } from '../store/open.js';
-import { cleanTitle, createPrompt, deletePrompt, ensureText, readText, savePrompt } from '../store/prompts.js';
+import { readPrompt, updatePrompt } from '../store/prompts.js';
 import { resolveEditor, saveSettings } from '../store/settings.js';
-import { moveInOrder, saveSort } from '../store/sort.js';
-import { Confirm, CONFIRM_HEIGHT } from './controls/Confirm.js';
-import type { Actions, Overlay } from './context.js';
+import type { Actions } from './context.js';
 import { useSize, type Size } from './hooks/useSize.js';
 import { ListView } from './ListView.js';
-import { FilterModal } from './modals/FilterModal.js';
+import { ArchiveModal } from './modals/ArchiveModal.js';
 import { NewModal } from './modals/NewModal.js';
 import { OpenModal } from './modals/OpenModal.js';
 import { SettingsModal } from './modals/SettingsModal.js';
@@ -25,7 +24,7 @@ export const MIN_ROWS = 10;
 
 /** Value passed to Ink's exit(); the CLI prints the summary. */
 export interface ExitResult {
-  deleted: number;
+  archived: number;
 }
 
 export interface AppProps {
@@ -46,10 +45,10 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
   const exit = onExit ?? app.exit;
   const size = useSize(sizeOverride);
   const [state, dispatch] = useReducer(reduce, store, initialState);
-  const [confirmingQuit, setConfirmingQuit] = useState(false);
   const { paths } = store;
 
   const fail = (e: unknown) => dispatch({ type: 'setMessage', message: { kind: 'error', text: (e as Error).message } });
+  const status = (text: string) => dispatch({ type: 'setMessage', message: { kind: 'status', text } satisfies Message });
   const guarded = <T,>(f: () => T, fallback: T): T => {
     try {
       return f();
@@ -58,98 +57,105 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
       return fallback;
     }
   };
+  const relative = (file: string) => path.relative(path.dirname(paths.root), file);
 
-  const quit = (deleteDone: boolean) => {
-    let deleted = 0;
-    if (deleteDone && state.done.size > 0) {
-      guarded(() => {
-        for (const id of state.done) deletePrompt(fs, paths, id);
-        saveSort(fs, paths, fullOrder(state).filter((id) => !state.done.has(id)));
-        deleted = state.done.size;
-      }, undefined);
-    }
-    exit({ deleted } satisfies ExitResult);
+  const quit = () => {
+    const marked = fullOrder(state).filter((id) => state.archiving.has(id));
+    const r = ops.archive(fs, paths, state, marked);
+    if (!r.error) return exit({ archived: r.archived.length } satisfies ExitResult);
+    // Stay open to show the error; what did move is gone from the list.
+    const archived = new Map(state.archived);
+    for (const id of r.archived) archived.set(id, state.prompts.get(id)!);
+    dispatch({ type: 'removePrompts', ids: r.archived });
+    dispatch({ type: 'setArchived', archived });
+    dispatch({ type: 'setSort', sort: r.sort });
+    fail(r.error);
   };
 
   const actions: Actions = {
     create: (title) =>
       guarded(() => {
-        const prompt = createPrompt(fs, paths, title, new Set(state.prompts.keys()), now());
-        const sort = [prompt.id, ...fullOrder(state)];
-        saveSort(fs, paths, sort);
+        const { prompt, sort } = ops.create(fs, paths, state, { title }, now());
         dispatch({ type: 'upsertPrompt', prompt });
         dispatch({ type: 'setSort', sort });
         dispatch({ type: 'select', id: prompt.id });
         return prompt.id;
       }, null),
-    rename: (id, title) =>
-      guarded(() => {
-        const prompt = { ...state.prompts.get(id)!, title: cleanTitle(title) };
-        savePrompt(fs, paths, prompt);
-        dispatch({ type: 'upsertPrompt', prompt });
-      }, undefined),
-    setTags: (id, tags) =>
-      guarded(() => {
-        const prompt = { ...state.prompts.get(id)!, tags };
-        savePrompt(fs, paths, prompt);
-        dispatch({ type: 'upsertPrompt', prompt });
-      }, undefined),
+    rename: (id, title) => guarded(() => dispatch({ type: 'upsertPrompt', prompt: ops.retitle(fs, paths, state, id, title) }), undefined),
+    setTags: (id, tags) => guarded(() => dispatch({ type: 'upsertPrompt', prompt: ops.setTags(fs, paths, state, id, tags) }), undefined),
     move: (by) =>
       guarded(() => {
         if (state.selectedId === null) return;
-        const sort = moveInOrder(fullOrder(state), visibleIds(state), state.selectedId, by);
-        if (!sort) return;
-        saveSort(fs, paths, sort);
-        dispatch({ type: 'setSort', sort });
+        const sort = ops.moveBy(fs, paths, state, visibleIds(state), state.selectedId, by);
+        if (sort) dispatch({ type: 'setSort', sort });
       }, undefined),
     saveSettings: (settings: AppSettings) =>
       guarded(() => {
         saveSettings(fs, paths, settings);
         dispatch({ type: 'setSettings', settings });
       }, undefined),
-    readText: (id) => guarded(() => readText(fs, paths, id), ''),
-    textPath: (id) => path.relative(path.dirname(paths.root), paths.textFile(id)),
+    itemPath: (id) => relative(paths.itemFile(id)),
+    archivePath: (id) => relative(paths.archiveFile(id)),
+    // The editor gets a temp copy of the text, so it cannot damage the
+    // header. Read from disk: New calls this before its state update lands.
     edit: async (id, suspend) => {
+      let dir: string | null = null;
       try {
-        const file = ensureText(fs, paths, id);
+        const prompt = readPrompt(fs, paths, id);
+        dir = fs.mkdtemp('prompts-');
+        const file = path.join(dir, `${id}.md`);
+        fs.writeFile(file, prompt.text);
         await suspend(() => runEditor(resolveEditor(state.settings, env), file));
+        const text = fs.readFile(file);
+        if (text !== prompt.text) dispatch({ type: 'upsertPrompt', prompt: updatePrompt(fs, paths, prompt, { text }) });
         // Force a redraw: renders during the suspension are discarded.
         dispatch({ type: 'setMessage', message: null });
       } catch (e) {
         fail(e);
+      } finally {
+        if (dir !== null) {
+          try {
+            for (const name of fs.readdir(dir)) fs.unlink(path.join(dir, name));
+            fs.rmdir(dir);
+          } catch {
+            // Leftover temp files are harmless.
+          }
+        }
       }
     },
     copy: async (id) => {
       try {
-        const text = readText(fs, paths, id);
+        const prompt = state.prompts.get(id) ?? state.archived.get(id)!;
         // A prompt with no text yet: the title is the useful thing to copy.
-        await copy(text.trim() === '' ? state.prompts.get(id)!.title : text);
-        dispatch({ type: 'setMessage', message: { kind: 'status', text: 'Copied' } satisfies Message });
+        await copy(prompt.text.trim() === '' ? prompt.title : prompt.text);
+        status('Copied');
       } catch (e) {
         fail(e);
       }
     },
+    restore: (id) =>
+      guarded(() => {
+        const { prompt, sort } = ops.restore(fs, paths, state, id);
+        const archived = new Map(state.archived);
+        archived.delete(id);
+        dispatch({ type: 'setArchived', archived });
+        dispatch({ type: 'upsertPrompt', prompt });
+        dispatch({ type: 'setSort', sort });
+        dispatch({ type: 'select', id });
+        status(`Restored ${prompt.title}`);
+      }, undefined),
     reload: () => {
       const r = loadStore(fs, paths);
       if (r.ok) dispatch({ type: 'replaceStore', store: r.store });
       else dispatch({ type: 'setMessage', message: { kind: 'error', text: `reload failed: ${r.errors[0]}` } });
     },
-    requestQuit: () => {
-      if (state.done.size === 0) quit(false);
-      else setConfirmingQuit(true);
-    },
+    quit,
   };
 
   const tooSmall = size.rows < MIN_ROWS || size.columns < MIN_COLUMNS;
 
   useInput((input, key) => {
-    if (key.ctrl && input === 'c') {
-      if (confirmingQuit) return;
-      if (tooSmall) quit(false);
-      else actions.requestQuit();
-      return;
-    }
-    if (tooSmall && input === 'q') quit(false);
+    if ((key.ctrl && input === 'c') || (tooSmall && input === 'q')) quit();
     else if (state.message !== null) dispatch({ type: 'setMessage', message: null });
   });
 
@@ -161,21 +167,7 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
     );
   }
 
-  const overlay: Overlay | null = confirmingQuit
-    ? {
-        height: CONFIRM_HEIGHT,
-        node: (
-          <Confirm
-            columns={size.columns}
-            question={`Delete ${state.done.size} done prompt${state.done.size === 1 ? '' : 's'}?`}
-            onYes={() => quit(true)}
-            onNo={() => setConfirmingQuit(false)}
-          />
-        ),
-      }
-    : null;
-
-  const props = { state, dispatch, actions, size, overlay };
+  const props = { state, dispatch, actions, size };
   switch (state.modal?.kind) {
     case 'new':
       return <NewModal {...props} />;
@@ -183,8 +175,10 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
       return <OpenModal {...props} id={state.modal.id} />;
     case 'tag':
       return <TagModal {...props} id={state.modal.id} from={state.modal.from} />;
-    case 'filter':
-      return <FilterModal {...props} />;
+    case 'archive':
+      return <ArchiveModal {...props} />;
+    case 'archived':
+      return <OpenModal {...props} id={state.modal.id} archived />;
     case 'settings':
       return <SettingsModal {...props} />;
     default:

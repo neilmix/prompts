@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- `.prompts` layout version 1: a `VERSION` file, and each prompt is one
+  file, `items/<id>.md`, with its title and tags at the top and its text
+  after two empty lines. A `.prompts` without `VERSION` (version 0, with
+  `index/` and `text/`) is upgraded after asking, or with
+  `prompts --upgrade`.
+- Done is now Archive (`a`). Marked prompts move to `.prompts/archive/` on
+  Quit, without a confirmation; the exit message reads `Archived N
+  prompt(s).`
+- New View-archive view (`v`) lists archived prompts, opens them read-only,
+  and restores them.
+- Search (`/`) matches the title, text and tags. Words are separate terms
+  that must all match; `"quoted text"` is one term. Search is a button in
+  the list view. The Filter view and `--filter` are gone.
+- The Tag view opens on the tag list instead of in the Add entry.
+- Edit opens a temporary copy of the text only; the changed text is written
+  back to the prompt's file.
+- New flags: `--retitle`, `--tag`, `--untag`, `--move`, `--archive`,
+  `--restore`, `--list-archive`, `--settings`, `--set`, `--init`,
+  `--upgrade`, and `--search` for `--list`. `--show` reads archived
+  prompts too.
 - Command-line flags for scripts and AI agents: `--list [--filter=TAGS]`,
   `--show=ID`, `--write=ID` and `--create --title=T [--tags=TAGS]`
   (content on stdin), and `--help`. They need no terminal.

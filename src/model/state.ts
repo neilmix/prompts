@@ -1,8 +1,9 @@
 import type { AppSettings, Message, Modal, Prompt, State } from './types.js';
-import { tagEq, visibleIds } from './select.js';
+import { visibleIds } from './select.js';
 
 export interface StoreSnapshot {
   prompts: Map<string, Prompt>;
+  archived: Map<string, Prompt>;
   sort: string[];
   settings: AppSettings;
 }
@@ -10,6 +11,7 @@ export interface StoreSnapshot {
 export type Action =
   | { type: 'upsertPrompt'; prompt: Prompt }
   | { type: 'removePrompts'; ids: string[] }
+  | { type: 'setArchived'; archived: Map<string, Prompt> }
   | { type: 'replaceStore'; store: StoreSnapshot }
   | { type: 'setSort'; sort: string[] }
   | { type: 'setSettings'; settings: AppSettings }
@@ -17,10 +19,8 @@ export type Action =
   | { type: 'move'; by: number }
   | { type: 'top' }
   | { type: 'bottom' }
-  | { type: 'toggleFilterTag'; tag: string }
-  | { type: 'clearFilter' }
   | { type: 'setSearch'; search: string }
-  | { type: 'toggleDone'; id: string }
+  | { type: 'toggleArchiving'; id: string }
   | { type: 'openModal'; modal: Modal }
   | { type: 'closeModal' }
   | { type: 'setMessage'; message: Message | null };
@@ -28,12 +28,12 @@ export type Action =
 export function initialState(init: StoreSnapshot): State {
   return normalize({
     prompts: init.prompts,
+    archived: init.archived,
     sort: init.sort,
     settings: init.settings,
     selectedId: null,
-    filter: [],
     search: '',
-    done: new Set(),
+    archiving: new Set(),
     modal: null,
     message: null,
   });
@@ -52,16 +52,19 @@ function apply(s: State, a: Action): State {
     }
     case 'removePrompts': {
       const prompts = new Map(s.prompts);
-      const done = new Set(s.done);
+      const archiving = new Set(s.archiving);
       for (const id of a.ids) {
         prompts.delete(id);
-        done.delete(id);
+        archiving.delete(id);
       }
-      return { ...s, prompts, done, sort: s.sort.filter((id) => !a.ids.includes(id)) };
+      return { ...s, prompts, archiving, sort: s.sort.filter((id) => !a.ids.includes(id)) };
     }
+    case 'setArchived':
+      return { ...s, archived: a.archived };
     case 'replaceStore': {
-      const done = new Set([...s.done].filter((id) => a.store.prompts.has(id)));
-      return { ...s, prompts: a.store.prompts, sort: a.store.sort, settings: a.store.settings, done };
+      const archiving = new Set([...s.archiving].filter((id) => a.store.prompts.has(id)));
+      const { prompts, archived, sort, settings } = a.store;
+      return { ...s, prompts, archived, sort, settings, archiving };
     }
     case 'setSort':
       return { ...s, sort: a.sort };
@@ -84,19 +87,13 @@ function apply(s: State, a: Action): State {
       const ids = visibleIds(s);
       return ids.length ? { ...s, selectedId: ids[ids.length - 1]! } : s;
     }
-    case 'toggleFilterTag': {
-      const has = s.filter.some((t) => tagEq(t, a.tag));
-      return { ...s, filter: has ? s.filter.filter((t) => !tagEq(t, a.tag)) : [...s.filter, a.tag] };
-    }
-    case 'clearFilter':
-      return { ...s, filter: [] };
     case 'setSearch':
       return { ...s, search: a.search };
-    case 'toggleDone': {
-      const done = new Set(s.done);
-      if (done.has(a.id)) done.delete(a.id);
-      else done.add(a.id);
-      return { ...s, done };
+    case 'toggleArchiving': {
+      const archiving = new Set(s.archiving);
+      if (archiving.has(a.id)) archiving.delete(a.id);
+      else archiving.add(a.id);
+      return { ...s, archiving };
     }
     case 'openModal':
       return { ...s, modal: a.modal, message: null };
