@@ -5,7 +5,7 @@ import { loadSettings, type AppSettings } from './settings.js';
 import { loadSort } from './sort.js';
 
 /** The store layout this app reads and writes. See file-format.md. */
-export const STORE_VERSION = 1;
+export const STORE_VERSION = 2;
 
 export interface Store {
   paths: Paths;
@@ -21,7 +21,7 @@ export type OpenResult =
   | LoadResult
   /** `dir` exists but has no `.prompts`; the caller may offer to create it. */
   | { ok: false; missing: true; paths: Paths }
-  /** `.prompts` has no VERSION file; the caller may offer to upgrade it. */
+  /** `.prompts` is an older version; the caller may offer to upgrade it. */
   | { ok: false; outdated: true; paths: Paths };
 
 /** Open the store at `dir`. Does not create or change anything. */
@@ -31,7 +31,7 @@ export function openStore(fs: Fs, dir: string): OpenResult {
   if (!fs.exists(paths.root)) return { ok: false, missing: true, paths };
   const version = readVersion(fs, paths);
   if (typeof version === 'string') return { ok: false, errors: [version] };
-  if (version === 0) return { ok: false, outdated: true, paths };
+  if (version < STORE_VERSION) return { ok: false, outdated: true, paths };
   if (version > STORE_VERSION) {
     return {
       ok: false,
@@ -53,11 +53,11 @@ export function readVersion(fs: Fs, paths: Paths): number | string {
 export const README = `# .prompts
 
 This directory holds AI prompt drafts managed by the \`prompts\` terminal app
-(npm package \`@neilmix/prompts\`). Each prompt is a file in \`items/\`: a short
-header with its title and tags, then its text. Archived prompts move to
-\`archive/\`. \`sort.txt\` holds the display order, \`settings.txt\` the app
-settings, and \`VERSION\` the layout version. All files are plain text and
-safe to keep under version control.
+(npm package \`@neilmix/prompts\`). Each prompt is a file in \`items/\`: a
+\`tags:\` line, then its text, whose first sentence is its title. Archived
+prompts move to \`archive/\`. \`sort.txt\` holds the display order,
+\`settings.txt\` the app settings, and \`VERSION\` the layout version. All
+files are plain text and safe to keep under version control.
 
 See https://github.com/neilmix/prompts for documentation and the file format.
 `;

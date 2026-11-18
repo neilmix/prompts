@@ -23,9 +23,9 @@ export function searchTokens(search: string): string[] {
   return tokens;
 }
 
-/** True when every token is in the title, the text, or a tag, case-insensitively. */
+/** True when every token is in the text (which holds the title) or a tag, case-insensitively. */
 export function matchesSearch(prompt: Prompt, search: string): boolean {
-  const fields = [prompt.title, prompt.text, ...prompt.tags].map((f) => f.toLowerCase());
+  const fields = [prompt.text, ...prompt.tags].map((f) => f.toLowerCase());
   return searchTokens(search).every((t) => fields.some((f) => f.includes(t)));
 }
 

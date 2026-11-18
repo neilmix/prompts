@@ -5,7 +5,7 @@ import { serializeSettings } from './store/format.js';
 import type { Fs } from './store/fs.js';
 import { initStore, openStore, type Store } from './store/open.js';
 import { pathsFor } from './store/paths.js';
-import { parseTags, type Prompt } from './store/prompts.js';
+import { isBlank, parseTags, titleOf, type Prompt } from './store/prompts.js';
 import { SETTING_KEYS, saveSettings, type SettingKey } from './store/settings.js';
 import { upgradeStore } from './store/upgrade.js';
 
@@ -37,7 +37,6 @@ interface Context {
 /** Options that modify a command. Each command lists the ones it accepts. */
 const OPTIONS = {
   search: 'QUERY',
-  title: 'TITLE',
   tags: 'TAGS',
   to: 'N',
 } as const;
@@ -61,7 +60,11 @@ type CommandDef = {
   | { store: false; run(ctx: Context): CommandResult }
 );
 
-const LIST_FORMAT = ['  ID<TAB>TITLE<TAB>TAGS', 'TAGS is comma-separated with no spaces, empty when none.'];
+const LIST_FORMAT = [
+  '  ID<TAB>TITLE<TAB>TAGS',
+  'TITLE is the first sentence or line of the text. TAGS is',
+  'comma-separated with no spaces, empty when none.',
+];
 
 /** Every command. Parsing, --help and dispatch are driven by this table. */
 const COMMANDS: CommandDef[] = [
@@ -88,52 +91,38 @@ const COMMANDS: CommandDef[] = [
     name: 'write',
     arg: 'ID',
     stdin: true,
-    help: ['Replace the prompt\'s text with stdin, exactly as given.'],
+    help: ['Replace the prompt\'s text with stdin, exactly as given. It may', 'not be blank.'],
     example: 'echo "New text" | prompts --write=20260921-143005',
     store: true,
     run: async (ctx) => {
       const bad = activeId(ctx.store, ctx.arg);
       if (bad) return bad;
-      ops.writeText(ctx.fs, ctx.store.paths, ctx.store, ctx.arg, await ctx.readStdin());
+      const text = await ctx.readStdin();
+      if (isBlank(text)) return emptyText();
+      ops.writeText(ctx.fs, ctx.store.paths, ctx.store, ctx.arg, text);
       return ok('');
     },
   },
   {
     name: 'create',
-    options: ['title', 'tags'],
-    required: ['title'],
+    options: ['tags'],
     stdin: true,
     help: [
-      'Create a prompt whose text is stdin and print its ID. It goes',
-      'first in the display order. Tabs in TITLE become spaces. A tag',
-      'that matches an existing one case-insensitively takes its spelling.',
+      'Create a prompt whose text is stdin and print its ID. The text',
+      'may not be blank; its first sentence is the title. The prompt',
+      'goes first in the display order. A tag that matches an existing',
+      'one case-insensitively takes its spelling.',
     ],
-    example: 'id=$(printf \'Summarize this.\' | prompts --create --title="Summarizer" --tags=work)',
+    example: 'id=$(printf \'Summarize this. Keep it short.\' | prompts --create --tags=work)',
     store: true,
     run: async (ctx) => {
-      const title = ctx.options.title!;
-      const problem = ops.titleProblem(title);
-      if (problem) return fail(`--title: ${problem}`);
       const tags = parseTags(ctx.options.tags);
       const bad = badTag('--tags', tags);
       if (bad) return fail(bad);
       const text = await ctx.readStdin();
-      const { prompt } = ops.create(ctx.fs, ctx.store.paths, ctx.store, { title, tags, text }, ctx.now);
+      if (isBlank(text)) return emptyText();
+      const { prompt } = ops.create(ctx.fs, ctx.store.paths, ctx.store, { tags, text }, ctx.now);
       return ok(`${prompt.id}\n`);
-    },
-  },
-  {
-    name: 'retitle',
-    arg: 'ID',
-    options: ['title'],
-    required: ['title'],
-    help: ['Change the prompt\'s title. Tabs in TITLE become spaces.'],
-    example: 'prompts --retitle=20260921-143005 --title="Better name"',
-    store: true,
-    run: (ctx) => {
-      const problem = ops.titleProblem(ctx.options.title!);
-      if (problem) return fail(`--title: ${problem}`);
-      return activeId(ctx.store, ctx.arg) ?? quietly(() => ops.retitle(ctx.fs, ctx.store.paths, ctx.store, ctx.arg, ctx.options.title!));
     },
   },
   {
@@ -296,7 +285,7 @@ dashes and underscores. Values may be given as --flag=value or --flag value.
 
 SEARCH: QUERY is split on spaces into terms; text in double quotes is one
 term, spaces included. A prompt matches when every term appears in its
-title, its text or one of its tags, ignoring case.
+text or one of its tags, ignoring case.
 
 Exit status: 0 success, 1 error (bad input, unknown ID, invalid, missing or
 outdated .prompts), 2 usage error. Errors go to stderr.
@@ -376,7 +365,7 @@ function notOpened(opened: Exclude<ReturnType<typeof openStore>, { ok: true }>, 
 function lines(prompts: Prompt[], search = ''): string {
   return prompts
     .filter((p) => matchesSearch(p, search))
-    .map((p) => `${p.id}\t${p.title}\t${p.tags.join(',')}\n`)
+    .map((p) => `${p.id}\t${titleOf(p.text)}\t${p.tags.join(',')}\n`)
     .join('');
 }
 
@@ -409,3 +398,4 @@ const quietly = (operation: () => unknown): CommandResult => {
 };
 const fail = (...lines: string[]): CommandResult => ({ code: 1, stdout: '', stderr: lines.map((l) => `${l}\n`).join('') });
 const unknownId = (id: string) => fail(`no prompt with id "${id}"`);
+const emptyText = () => fail('stdin: text is empty');

@@ -4,7 +4,8 @@ AI prompt management for solo developers.
 
 `prompts` is a terminal app that keeps a directory of prompt drafts under
 version control. Toss raw ideas in, tag and reorder them, edit them over
-time, and hand them to an AI assistant when they are ready.
+time, and hand them to an AI assistant when they are ready. A prompt's
+first sentence is its title in the list.
 
 ## Install
 
@@ -35,7 +36,7 @@ running the editor and copying, has a flag. `prompts --help` explains them.
 prompts --list --search=work          # ID<TAB>title<TAB>tags per line
 prompts --show=20260921-143005        # print the text
 echo "New text" | prompts --write=20260921-143005
-printf 'Summarize this.' | prompts --create --title="Summarizer" --tags=work
+printf 'Summarize this. Keep it short.' | prompts --create --tags=work
 prompts --tag=20260921-143005 --tags=urgent
 prompts --move=20260921-143005 --to=1
 prompts --archive=20260921-143005
@@ -65,7 +66,7 @@ prompts --init                        # set up .prompts without asking
 | Tab | Select the next command button |
 | Enter | Activate the selected button |
 | letter | Activate the button whose underlined letter it is |
-| / | Search titles, text and tags; words are ANDed, `"quoted text"` is one term |
+| / | Search text and tags; words are ANDed, `"quoted text"` is one term |
 | Escape | Close the current modal, leave move mode, or clear the search |
 
 On a Mac keyboard without PageUp, PageDown, Home and End keys, macOS sends
@@ -75,9 +76,9 @@ them for Fn+Up, Fn+Down, Fn+Left and Fn+Right.
 
 | Command | Key | What it does |
 | --- | --- | --- |
-| New | n | Create a prompt from a title and open it in your editor |
-| Open | o | Read the prompt. From there: Edit, Retitle, Tag, Copy, mark for Archive, or go Back |
-| Copy | c | Copy the prompt text to the clipboard, or the title when the text is blank |
+| New | n | Write a new prompt in your editor; nothing is created if you leave it blank |
+| Open | o | Read the prompt. From there: Edit, Tag, Copy, mark for Archive, or go Back |
+| Copy | c | Copy the prompt text to the clipboard |
 | /Search | / | Show only prompts matching the search |
 | Archive | a | Mark the prompt for archiving. Marked prompts move to `.prompts/archive` on Quit |
 | Tag | t | Add or remove tags on the prompt |

@@ -8,19 +8,22 @@ import type { AppSettings, Message } from '../model/types.js';
 import * as ops from '../ops.js';
 import type { Fs } from '../store/fs.js';
 import { loadStore, type Store } from '../store/open.js';
-import { readPrompt, updatePrompt } from '../store/prompts.js';
+import { isBlank, readPrompt, titleOf } from '../store/prompts.js';
 import { resolveEditor, saveSettings } from '../store/settings.js';
+import type { SuspendTerminal } from 'ink';
 import type { Actions } from './context.js';
 import { useSize, type Size } from './hooks/useSize.js';
 import { ListView } from './ListView.js';
 import { ArchiveModal } from './modals/ArchiveModal.js';
-import { NewModal } from './modals/NewModal.js';
 import { OpenModal } from './modals/OpenModal.js';
 import { SettingsModal } from './modals/SettingsModal.js';
 import { TagModal } from './modals/TagModal.js';
 
 export const MIN_COLUMNS = 40;
 export const MIN_ROWS = 10;
+
+/** Shown when the editor left a prompt's text blank. */
+export const EMPTY_EDIT = 'text is empty; kept the old text';
 
 /** Value passed to Ink's exit(); the CLI prints the summary. */
 export interface ExitResult {
@@ -59,6 +62,29 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
   };
   const relative = (file: string) => path.relative(path.dirname(paths.root), file);
 
+  /**
+   * Run the editor on a temp file `<name>.md` holding `text`; return what
+   * it saved. The temp directory is removed afterwards.
+   */
+  const editTemp = async (name: string, text: string, suspend: SuspendTerminal): Promise<string> => {
+    const dir = fs.mkdtemp('prompts-');
+    try {
+      const file = path.join(dir, `${name}.md`);
+      fs.writeFile(file, text);
+      await suspend(() => runEditor(resolveEditor(state.settings, env), file));
+      // Force a redraw: renders during the suspension are discarded.
+      dispatch({ type: 'setMessage', message: null });
+      return fs.readFile(file);
+    } finally {
+      try {
+        for (const entry of fs.readdir(dir)) fs.unlink(path.join(dir, entry));
+        fs.rmdir(dir);
+      } catch {
+        // Leftover temp files are harmless.
+      }
+    }
+  };
+
   const quit = () => {
     const marked = fullOrder(state).filter((id) => state.archiving.has(id));
     const r = ops.archive(fs, paths, state, marked);
@@ -73,15 +99,19 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
   };
 
   const actions: Actions = {
-    create: (title) =>
-      guarded(() => {
-        const { prompt, sort } = ops.create(fs, paths, state, { title }, now());
+    // Blank text means the user changed their mind: nothing is created.
+    create: async (suspend) => {
+      try {
+        const text = await editTemp('new', '', suspend);
+        if (isBlank(text)) return;
+        const { prompt, sort } = ops.create(fs, paths, state, { text }, now());
         dispatch({ type: 'upsertPrompt', prompt });
         dispatch({ type: 'setSort', sort });
         dispatch({ type: 'select', id: prompt.id });
-        return prompt.id;
-      }, null),
-    rename: (id, title) => guarded(() => dispatch({ type: 'upsertPrompt', prompt: ops.retitle(fs, paths, state, id, title) }), undefined),
+      } catch (e) {
+        fail(e);
+      }
+    },
     setTags: (id, tags) => guarded(() => dispatch({ type: 'upsertPrompt', prompt: ops.setTags(fs, paths, state, id, tags) }), undefined),
     move: (by) =>
       guarded(() => {
@@ -97,37 +127,22 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
     itemPath: (id) => relative(paths.itemFile(id)),
     archivePath: (id) => relative(paths.archiveFile(id)),
     // The editor gets a temp copy of the text, so it cannot damage the
-    // header. Read from disk: New calls this before its state update lands.
+    // header. It starts from the text on disk, which may be newer than ours.
     edit: async (id, suspend) => {
-      let dir: string | null = null;
       try {
-        const prompt = readPrompt(fs, paths, id);
-        dir = fs.mkdtemp('prompts-');
-        const file = path.join(dir, `${id}.md`);
-        fs.writeFile(file, prompt.text);
-        await suspend(() => runEditor(resolveEditor(state.settings, env), file));
-        const text = fs.readFile(file);
-        if (text !== prompt.text) dispatch({ type: 'upsertPrompt', prompt: updatePrompt(fs, paths, prompt, { text }) });
-        // Force a redraw: renders during the suspension are discarded.
-        dispatch({ type: 'setMessage', message: null });
+        const before = readPrompt(fs, paths, id).text;
+        const text = await editTemp(id, before, suspend);
+        if (text === before) return;
+        if (isBlank(text)) return fail(new Error(EMPTY_EDIT));
+        dispatch({ type: 'upsertPrompt', prompt: ops.writeText(fs, paths, state, id, text) });
       } catch (e) {
         fail(e);
-      } finally {
-        if (dir !== null) {
-          try {
-            for (const name of fs.readdir(dir)) fs.unlink(path.join(dir, name));
-            fs.rmdir(dir);
-          } catch {
-            // Leftover temp files are harmless.
-          }
-        }
       }
     },
     copy: async (id) => {
       try {
         const prompt = state.prompts.get(id) ?? state.archived.get(id)!;
-        // A prompt with no text yet: the title is the useful thing to copy.
-        await copy(prompt.text.trim() === '' ? prompt.title : prompt.text);
+        await copy(prompt.text);
         status('Copied');
       } catch (e) {
         fail(e);
@@ -142,7 +157,7 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
         dispatch({ type: 'upsertPrompt', prompt });
         dispatch({ type: 'setSort', sort });
         dispatch({ type: 'select', id });
-        status(`Restored ${prompt.title}`);
+        status(`Restored ${titleOf(prompt.text)}`);
       }, undefined),
     reload: () => {
       const r = loadStore(fs, paths);
@@ -169,8 +184,6 @@ export function App({ fs, store, env, runEditor, copy = copyToClipboard, onExit,
 
   const props = { state, dispatch, actions, size };
   switch (state.modal?.kind) {
-    case 'new':
-      return <NewModal {...props} />;
     case 'open':
       return <OpenModal {...props} id={state.modal.id} />;
     case 'tag':

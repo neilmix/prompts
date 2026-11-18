@@ -18,8 +18,10 @@ Terminal app (Node, TypeScript, Ink) that manages AI prompt drafts in a
   `ink-testing-library` tests; startup gets integration tests in `./tmp`.
 - Keep `src/store` and `src/model` free of Ink imports.
 - New tags match `[A-Za-z0-9_-]+` (enforced on input, not on load). Tag
-  comparison is case-insensitive. Titles never contain tabs, because
-  `--list` output is tab-separated.
+  comparison is case-insensitive.
+- A prompt's title is derived from its text (`titleOf`), never stored.
+  Prompt text is never blank. Titles never contain tabs, because `--list`
+  output is tab-separated.
 - Archive marks are in memory only. In the app, marked prompts move to `archive/`
   only on Quit. No prompt is ever deleted.
 - Every file written to `.prompts` uses the `key: value` syntax from

@@ -27,7 +27,7 @@ export async function mount(
   const fs = new MemoryFs({
     '/w/.prompts/items': null,
     '/w/.prompts/archive': null,
-    '/w/.prompts/VERSION': '1\n',
+    '/w/.prompts/VERSION': '2\n',
     '/w/.prompts/settings.txt': '',
     '/w/.prompts/sort.txt': '',
     ...Object.fromEntries(Object.entries(files).map(([k, v]) => [`/w/.prompts/${k}`, v])),

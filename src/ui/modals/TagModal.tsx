@@ -1,6 +1,7 @@
 import { Box } from 'ink';
 import { useRef, useState } from 'react';
 import { allTags, canonicalTag, completeTag, tagEq, validateTag } from '../../model/select.js';
+import { titleOf } from '../../store/prompts.js';
 import { ListBody, GUTTER } from '../controls/ListBody.js';
 import { TextInput, TEXT_INPUT_HEIGHT } from '../controls/TextInput.js';
 import type { ViewProps } from '../context.js';
@@ -63,7 +64,7 @@ export function TagModal({ state, dispatch, actions, size, id, from }: ViewProps
 
   return (
     <Box flexDirection="column" height={size.rows} width={size.columns}>
-      <TitleBar title={`Tags › ${prompt.title}`} right={id} columns={size.columns} />
+      <TitleBar title={`Tags › ${titleOf(prompt.text)}`} right={id} columns={size.columns} />
       <ListBody rows={view.rows} selected={sel} focused={commands.focus === 0} height={listHeight} emptyText="no tags · a to add one" />
       {adding && (
         <TextInput

@@ -1,6 +1,7 @@
-import { Box } from 'ink';
+import { Box, useApp } from 'ink';
 import { useRef, useState } from 'react';
 import { visibleIds } from '../model/select.js';
+import { titleOf } from '../store/prompts.js';
 import { ListBody, GUTTER } from './controls/ListBody.js';
 import { TextInput, TEXT_INPUT_HEIGHT } from './controls/TextInput.js';
 import { selectedPrompt, type ViewProps } from './context.js';
@@ -24,6 +25,7 @@ export const archiveLabel = (marked: boolean): string => (marked ? '✓ Archive'
 export const SEARCH_LABEL = '/Search';
 
 export function ListView({ state, dispatch, actions, size }: ViewProps) {
+  const { suspendTerminal } = useApp();
   const [searching, setSearching] = useState(false);
   const [moving, setMoving] = useState(false);
   const topRef = useRef(0);
@@ -37,7 +39,7 @@ export function ListView({ state, dispatch, actions, size }: ViewProps) {
 
   const items = ids.map((id) => {
     const p = state.prompts.get(id)!;
-    return { text: (state.archiving.has(id) ? '✓ ' : '') + p.title, tail: chips(p.tags) };
+    return { text: (state.archiving.has(id) ? '✓ ' : '') + titleOf(p.text), tail: chips(p.tags) };
   });
   const view = listViewport(items, selectedIndex, bodyHeight, size.columns - GUTTER, topRef.current, BULLET);
   topRef.current = view.top;
@@ -48,7 +50,7 @@ export function ListView({ state, dispatch, actions, size }: ViewProps) {
   const open = withSelected((id) => dispatch({ type: 'openModal', modal: { kind: 'open', id } }));
   const commands = useCommands(
     [
-      { label: 'New', shortcut: 'n', onActivate: () => dispatch({ type: 'openModal', modal: { kind: 'new' } }) },
+      { label: 'New', shortcut: 'n', onActivate: () => void actions.create(suspendTerminal) },
       { label: 'Open', shortcut: 'o', onActivate: open },
       { label: 'Copy', shortcut: 'c', onActivate: withSelected((id) => void actions.copy(id)) },
       { label: SEARCH_LABEL, shortcut: '/', onActivate: () => setSearching(true) },

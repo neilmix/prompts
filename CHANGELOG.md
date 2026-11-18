@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Fix: pasting into the editor could lose text, show a stray `[201~`,
+  or leave the app unresponsive after the editor closed. The app no longer
+  reads keyboard input while the editor runs.
+- A prompt's title is now the first sentence (or first line) of its text
+  instead of a separate field. New opens your editor straight away and
+  creates the prompt only if you write something. Retitle, `--retitle` and
+  `--title` are gone; `--create` takes just the text on stdin. Blank text
+  is refused by Edit, `--create` and `--write`.
+- `.prompts` layout version 2: item files no longer have a `title` line.
+  Version 1 stores are upgraded after asking, or with `prompts --upgrade`;
+  each stored title becomes the first line of its prompt's text.
 - Fix: typing past the edge of a text entry (such as a long title) went
   off screen. The entry now scrolls to keep the cursor in view, with `…`
   marking hidden text.

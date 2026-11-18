@@ -3,12 +3,20 @@
 This document is the source of truth for what `prompts` does. Tests are
 derived from it. When behavior changes, change this file in the same commit.
 
-Terms: a **prompt** is one item, made of a title, tags, and a text body.
-**Active** prompts live in `items/` and appear in the list view;
-**archived** prompts live in `archive/`. The **store** is the `.prompts`
+Terms: a **prompt** is one item, made of tags and a text body. Its
+**title** is derived from the text (below) and is not stored. **Active**
+prompts live in `items/` and appear in the list view; **archived** prompts
+live in `archive/`. The **store** is the `.prompts`
 directory (see [file-format.md](file-format.md)). `^X` means Ctrl+X.
 Button shortcuts are bare keys (letters, and `/` for Search); Ctrl+letter
 does nothing.
+
+**Title**: the first line of the text that is not blank, ended early by
+the first `.`, `!` or `?` that is followed by whitespace (the mark is kept).
+Tabs become spaces and the result is trimmed. For example, `Fix the parser.
+Then ship.` has the title `Fix the parser.`, and `See v1.2 notes` keeps the
+whole line. A prompt's text is never blank (only whitespace), so every
+prompt has a title: New, Edit, `--create` and `--write` refuse blank text.
 
 ## 1. Startup
 
@@ -18,7 +26,7 @@ does nothing.
    positional argument, else the current working directory. A missing
    directory is an error.
 2. If `<dir>/.prompts` exists, read its version (file-format.md,
-   "Versions"). A version newer than 1 is an error. At version 1, load and
+   "Versions"). A version newer than 2 is an error. At version 2, load and
    validate it. Errors and validation failures (see file-format.md,
    "Validation") print one line per problem to stderr and exit with status
    1. Nothing is rendered.
@@ -29,11 +37,11 @@ does nothing.
    the normal screen. `y` creates `.prompts/` with `README.md`, `VERSION`,
    `settings.txt`, `sort.txt`, `items/`, and `archive/`, then continues. `n`, Escape, or ^C
    exits with status 0 and creates nothing.
-5. If `<dir>/.prompts` is version 0, show the directory and ask
-   `Upgrade .prompts to version 1? (y/n)`. `y` upgrades it (file-format.md,
-   "Upgrading from version 0"), then loads and validates it as in step 2.
+5. If `<dir>/.prompts` is version 0 or 1, show the directory and ask
+   `Upgrade .prompts to version 2? (y/n)`. `y` upgrades it (file-format.md,
+   "Upgrading"), then loads and validates it as in step 2.
    `n`, Escape, or ^C exits with status 0 and changes nothing. If the
-   upgrade finds invalid version 0 files, it changes nothing and reports
+   upgrade finds invalid files, it changes nothing and reports
    them as in step 2.
 6. The app runs in the terminal's alternate screen.
 7. If the terminal is smaller than 40 columns by 10 rows, the whole screen
@@ -57,7 +65,7 @@ the line, e.g. `──── press space to reorder ────`. Centered text
 when it does not fit.
 
 Empty bodies show a gray hint with the next action: `no prompts · n to
-create one`, `no tags · a to add one`, `empty · e to edit`.
+create one`, `no tags · a to add one`.
 
 ## 3. Focus
 
@@ -141,12 +149,12 @@ Mouse, when the terminal reports it: wheel up / down moves the selection
   /, a, t, v, s, r, q.
 - Primary action (Enter on body): Open.
 
-**New (n)**: title bar `New prompt`, a `Title` entry. Enter with a
-non-empty (trimmed) title, tabs replaced by spaces, creates the prompt with
-a new ID (one not used by an active or archived prompt) and empty text,
-places it first in the sort order, selects it, then immediately runs the
-editor on it (as Edit does). On return, the list view is shown. Enter with
-an empty title does nothing. Escape cancels.
+**New (n)**: releases the terminal and runs the editor (section 9) on an
+empty temporary file named `new.md`, then restores the screen and removes
+the file. If the saved text is not blank, it creates the prompt with that
+text, exactly as saved, and a new ID (one not used by an active or archived
+prompt), places it first in the sort order, and selects it. Blank text
+creates nothing and shows no message. The editor's exit status is ignored.
 
 **Open (o)**: see the Open view.
 
@@ -173,8 +181,8 @@ and shows the error; prompts already moved are gone from the list.
 current search. The list filters live as the user types. The search is
 split on spaces into terms; text in double quotes is one term, spaces
 included (an unclosed quote runs to the end). A prompt matches when every
-term appears, case-insensitively, in its title, its text, or one of its
-tags. Enter keeps the search and closes the entry. Escape clears the search
+term appears, case-insensitively, in its text (which holds the title) or
+one of its tags. Enter keeps the search and closes the entry. Escape clears the search
 and closes the entry. Search is not persisted.
 
 ### Open view
@@ -182,29 +190,25 @@ and closes the entry. Search is not persisted.
 - Title bar: `Open › <title>` followed by the tag chips `[work] [urgent]`,
   right: the prompt ID.
 - Body: the prompt's text, scrollable. A single trailing newline is not
-  shown as a blank line. Empty text shows the empty hint.
+  shown as a blank line.
 - The separator below the body is labeled with the item file's relative
   path, e.g. `─ .prompts/items/20260921-143005.md ─`, with the range
   counter on its right when the text overflows.
-- Buttons: **Edit, Retitle, Tag, Copy, Archive, Back**. Shortcuts e, r, t,
-  c, a, b.
+- Buttons: **Edit, Tag, Copy, Archive, Back**. Shortcuts e, t, c, a, b.
 - Primary action: Edit.
-- **Edit**: copies the text into a new temporary file named `<id>.md`,
-  releases the terminal, runs the editor (section 9) on it, then restores
-  the screen. If the text changed, it replaces the text in the item file,
-  keeping the title and tags as they are on disk. The temporary file is
+- **Edit**: copies the text, as it is on disk, into a new temporary file
+  named `<id>.md`, releases the terminal, runs the editor (section 9) on
+  it, then restores the screen. If the text changed, it replaces the text
+  in the item file, keeping the tags as they are on disk; the title follows
+  the new text. If the saved text is blank, nothing is written and the
+  error `text is empty; kept the old text` is shown. The temporary file is
   removed. The editor's exit status is ignored.
-- **Retitle**: `Title` entry pre-filled with the current title. Enter with a
-  non-empty title saves it, trimmed and with tabs replaced by spaces, to the
-  item file. Empty does nothing. Escape
-  cancels.
 - **Tag**: opens the Tag view for this prompt. Leaving the Tag view returns
   to the Open view.
 - **Archive**: as in the list view, for this prompt.
 - **Copy**: copies the text to the system clipboard using the first
   available of `pbcopy`, `wl-copy`, `xclip -selection clipboard`,
-  `xsel --clipboard --input`. When the text is blank (empty or only
-  whitespace), the title is copied instead. Shows the status message `Copied` or an
+  `xsel --clipboard --input`. Shows the status message `Copied` or an
   error message if none is available or the command fails.
 - **Back**, Escape, q: return to the list view.
 
@@ -251,7 +255,6 @@ and closes the entry. Search is not persisted.
 - Title bar: `Archived › <title>` followed by the tag chips, right: the
   prompt ID.
 - Body and separator as in the Open view, with the path in `archive/`.
-  Empty text shows `empty`.
 - Buttons: **Restore, Back** (r, b). The text cannot be edited.
 - **Restore**: as in the archive view, then returns to the archive view.
 - **Back**, Escape, q: return to the archive view.
@@ -303,12 +306,13 @@ unsorted prompts compares IDs as strings, descending.
 Command resolution: `editor` setting, else `$EDITOR`, else `vi`. The value
 is a shell command. It runs as `sh -c '<value> "$@"' sh <file>`, so quoting
 and flags in the value work as they would in a shell. The child inherits
-the terminal.
+the terminal, and the app reads no input until it exits, so every key and
+paste reaches the editor.
 
 ## 10. Messages
 
-A write failure, a clipboard failure, a reload failure, or a tag
-validation problem shows one red line above the buttons. `Copied` shows in
+A write failure, a clipboard failure, a reload failure, blank text from
+Edit, or a tag validation problem shows one red line above the buttons. `Copied` shows in
 green. The message disappears on the next key press.
 
 ## 11. Command-line flags
@@ -321,11 +325,10 @@ one command flag may be given, with the options it accepts.
 
 | Command | Effect and output |
 | --- | --- |
-| `--list [--search=QUERY]` | One line per prompt in display order (section 6): `ID<TAB>title<TAB>tags`, tags joined by `,` with no spaces, empty when none. No header. `--search` keeps prompts matching QUERY, as the list view's search does. |
+| `--list [--search=QUERY]` | One line per prompt in display order (section 6): `ID<TAB>title<TAB>tags`, the title as defined above, tags joined by `,` with no spaces, empty when none. No header. `--search` keeps prompts matching QUERY, as the list view's search does. |
 | `--show=ID` | The prompt's text exactly as stored. Works for active and archived prompts. |
-| `--write=ID` | Replaces the text with stdin exactly as given. No output. |
-| `--create --title=TITLE [--tags=TAGS]` | Creates a prompt as New does (first in the sort order), with the text from stdin exactly as given, and prints `ID` and a newline. Tabs in the title become spaces; the title is trimmed. |
-| `--retitle=ID --title=TITLE` | Changes the title, as Retitle does. No output. |
+| `--write=ID` | Replaces the text with stdin exactly as given. Blank stdin is an error. No output. |
+| `--create [--tags=TAGS]` | Creates a prompt as New does (first in the sort order), with the text from stdin exactly as given, and prints `ID` and a newline. Blank stdin is an error. |
 | `--tag=ID --tags=TAGS` | Adds the tags the prompt does not already have. No output. |
 | `--untag=ID --tags=TAGS` | Removes the listed tags, case-insensitively; tags the prompt does not have are ignored. Tag characters are not checked. No output. |
 | `--move=ID --to=N` | Moves the prompt to position N (1 is the top) of the display order, or to the bottom when N is past the end. No output. |
@@ -335,7 +338,7 @@ one command flag may be given, with the options it accepts.
 | `--settings` | The settings in `settings.txt` syntax, unset keys omitted. |
 | `--set=KEY=VALUE` | Sets a setting; VALUE is trimmed and empty removes it. KEY must be a setting from the Settings view. No output. |
 | `--init` | Creates `.prompts` as Setup does. Fails if it exists. No output. |
-| `--upgrade` | Upgrades a version 0 `.prompts` as step 5 of section 1 does. Does nothing when it is already version 1. No output. |
+| `--upgrade` | Upgrades a version 0 or 1 `.prompts` as step 5 of section 1 does. Does nothing when it is already version 2. No output. |
 | `--help` | Usage text on stdout, covering every flag, the output formats, the exit codes, and one example per command. |
 
 `TAGS` is comma-separated; entries are trimmed and empty ones dropped.
@@ -348,20 +351,21 @@ Errors print to stderr:
 
 - Exit 2, followed by `Run prompts --help for usage.`: an unknown flag,
   more than one command, a missing value, an option the command does not
-  accept (`--title requires --create or --retitle`), a command missing a
-  required option (`--create requires --title`), or more than one
+  accept (`--tags requires --create or --tag or --untag`), a command missing a
+  required option (`--move requires --to`), or more than one
   positional argument. `--help` wins over all of these except unknown flags
   and missing values.
 - Exit 1, one line per problem: no `.prompts` (`<dir>: no .prompts
   directory; run prompts --init, or prompts in a terminal, to set one up`),
-  a version 0 `.prompts` for any command but `--upgrade` (`<dir>: .prompts
+  a version 0 or 1 `.prompts` for any command but `--upgrade` (`<dir>: .prompts
   is in an older format; run prompts --upgrade, or prompts in a terminal,
   to upgrade it`), validation failures (as in section 1), an unknown ID
   (`no prompt with id "ID"`), an archived ID where an active one is needed
   (`prompt "ID" is archived; restore it first`), an unknown archived ID for
   `--restore` (`no archived prompt with id "ID"`), an invalid tag (`--tags:
   "a b": tags use only letters, numbers, - and _`), no tags (`--tags: no
-  tags given`), an empty title or one with a line break, a bad position
+  tags given`), blank stdin for `--create` or `--write` (`stdin: text is
+  empty`), a bad position
   (`--to: "0": expected a position, 1 or more`), a malformed or unknown
   setting, `--init` where `.prompts` exists, or a filesystem error.
 
@@ -399,3 +403,10 @@ Review these; they were chosen for simplicity.
   need an active prompt.
 - The upgrade leaves a text file with no index file in `text/`, and keeps
   an edited `README.md`.
+- A title keeps its ending `.`, `!` or `?`. Punctuation not followed by
+  whitespace (`v1.2`, `node.js`) does not end it. Markdown such as a
+  leading `# ` is not stripped.
+- New with blank text quietly creates nothing; Edit to blank text keeps the
+  old text and shows an error.
+- `--write` and `--create` check stdin for blank text after the other
+  checks, since stdin is read last.

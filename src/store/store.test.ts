@@ -4,18 +4,18 @@ import { initStore, openStore, README } from './open.js';
 import { pathsFor } from './paths.js';
 import {
   archivePrompt,
-  cleanTitle,
   createPrompt,
   loadPrompts,
   parseItem,
   restorePrompt,
   savePrompt,
   serializeItem,
+  titleOf,
   updatePrompt,
 } from './prompts.js';
 import { loadSettings, resolveEditor, saveSettings } from './settings.js';
 import { displayOrder, loadSort, moveInOrder, saveSort } from './sort.js';
-import { README_V0, upgradeStore } from './upgrade.js';
+import { README_V0, README_V1, upgradeStore } from './upgrade.js';
 
 const P = pathsFor('/w');
 const A = '20260101-000000';
@@ -24,7 +24,7 @@ function storeFs(files: Record<string, string> = {}): MemoryFs {
   return new MemoryFs({
     '/w/.prompts/items': null,
     '/w/.prompts/archive': null,
-    '/w/.prompts/VERSION': '1\n',
+    '/w/.prompts/VERSION': '2\n',
     '/w/.prompts/settings.txt': '',
     '/w/.prompts/sort.txt': '',
     ...Object.fromEntries(Object.entries(files).map(([k, v]) => [`/w/.prompts/${k}`, v])),
@@ -65,12 +65,12 @@ describe('openStore', () => {
     expect(fs.exists('/w/.prompts')).toBe(false);
   });
 
-  it('initStore creates the version 1 layout, after which openStore succeeds', () => {
+  it('initStore creates the version 2 layout, after which openStore succeeds', () => {
     const fs = new MemoryFs({ '/w': null });
     initStore(fs, P);
     expect(fs.isDir('/w/.prompts/items')).toBe(true);
     expect(fs.isDir('/w/.prompts/archive')).toBe(true);
-    expect(fs.readFile('/w/.prompts/VERSION')).toBe('1\n');
+    expect(fs.readFile('/w/.prompts/VERSION')).toBe('2\n');
     expect(fs.readFile('/w/.prompts/settings.txt')).toBe('');
     expect(fs.readFile('/w/.prompts/sort.txt')).toBe('');
     expect(openStore(fs, '/w').ok).toBe(true);
@@ -103,16 +103,20 @@ describe('openStore', () => {
     expect(openStore(fs, '/w')).toMatchObject({ ok: false, outdated: true });
   });
 
+  it('treats version 1 as needing an upgrade', () => {
+    expect(openStore(storeFs({ VERSION: '1\n' }), '/w')).toMatchObject({ ok: false, outdated: true });
+  });
+
   it('refuses newer and malformed versions', () => {
-    expect(openStore(storeFs({ VERSION: '2\n' }), '/w')).toEqual({
+    expect(openStore(storeFs({ VERSION: '3\n' }), '/w')).toEqual({
       ok: false,
-      errors: ['VERSION: .prompts is version 2, newer than this app supports (1); upgrade prompts'],
+      errors: ['VERSION: .prompts is version 3, newer than this app supports (2); upgrade prompts'],
     });
     expect(openStore(storeFs({ VERSION: 'one\n' }), '/w')).toEqual({ ok: false, errors: ['VERSION: invalid version "one"'] });
   });
 
   it('reports missing pieces', () => {
-    const fs = new MemoryFs({ '/w/.prompts/settings.txt': '', '/w/.prompts/VERSION': '1\n' });
+    const fs = new MemoryFs({ '/w/.prompts/settings.txt': '', '/w/.prompts/VERSION': '2\n' });
     const r = openStore(fs, '/w');
     expect(r).toEqual({
       ok: false,
@@ -123,28 +127,29 @@ describe('openStore', () => {
   it('loads a valid store, archive included', () => {
     const fs = storeFs({
       'settings.txt': 'editor: nano\n',
-      [`items/${A}.md`]: 'title: A\ntags: x, y\n\n\nbody',
-      'archive/20250101-000000.md': 'title: Old\n\n\nold text\n',
+      [`items/${A}.md`]: 'tags: x, y\n\n\nbody',
+      'archive/20250101-000000.md': 'tags:\n\n\nold text\n',
       'sort.txt': `${A}\n`,
     });
     const r = openStore(fs, '/w');
     if (!r.ok) throw new Error('errors' in r ? r.errors.join() : 'missing');
     expect(r.store.settings).toEqual({ editor: 'nano' });
-    expect(r.store.prompts.get(A)).toEqual({ id: A, title: 'A', tags: ['x', 'y'], text: 'body' });
-    expect(r.store.archived.get('20250101-000000')).toEqual({ id: '20250101-000000', title: 'Old', tags: [], text: 'old text\n' });
+    expect(r.store.prompts.get(A)).toEqual({ id: A, tags: ['x', 'y'], text: 'body' });
+    expect(r.store.archived.get('20250101-000000')).toEqual({ id: '20250101-000000', tags: [], text: 'old text\n' });
     expect(r.store.sort).toEqual([A]);
   });
 
   it('collects validation errors from every file', () => {
     const fs = storeFs({
       'settings.txt': 'color: red\n',
-      [`items/${A}.md`]: 'tags: x\n',
-      'items/bad.md': 'title: x\n',
-      'items/20260101-000002.txt': 'title: x\n',
-      'items/20260101-000001.md': 'title: ok\nextra: 1\n',
-      'items/20260101-000003.md': 'title: ok\n\none blank line only\n',
-      'items/20260101-000004.md': 'title: ok\n',
-      'archive/20260101-000004.md': 'title: dup\n',
+      [`items/${A}.md`]: 'tags: x\n\n\n \n\n',
+      'items/bad.md': 'tags:\n\n\nx',
+      'items/20260101-000002.txt': 'tags:\n\n\nx',
+      'items/20260101-000001.md': 'tags:\nextra: 1\n\n\nx',
+      'items/20260101-000003.md': 'tags:\n\none blank line only\n',
+      'items/20260101-000004.md': 'title: old\n\n\nx',
+      'items/20260101-000005.md': 'tags:\n\n\nx',
+      'archive/20260101-000005.md': 'tags:\n\n\ndup',
       'archive/20250101-000000.md': 'nope\n',
       'sort.txt': 'junk\n',
     });
@@ -153,14 +158,15 @@ describe('openStore', () => {
       ok: false,
       errors: [
         'settings.txt: unknown key "color"',
-        `items/${A}.md: missing title`,
+        `items/${A}.md: empty text`,
         'items/20260101-000001.md: unknown key "extra"',
         'items/20260101-000002.txt: unexpected file',
         'items/20260101-000003.md: expected two empty lines after the header',
+        'items/20260101-000004.md: unknown key "title"',
         'items/bad.md: invalid id',
         'archive/20250101-000000.md: line 1: expected "key: value"',
         'sort.txt: line 1: invalid id "junk"',
-        'archive/20260101-000004.md: same id as items/20260101-000004.md',
+        'archive/20260101-000005.md: same id as items/20260101-000005.md',
       ],
     });
   });
@@ -177,23 +183,23 @@ describe('upgradeStore', () => {
       ...Object.fromEntries(Object.entries(files).map(([k, v]) => [`/w/.prompts/${k}`, v])),
     });
 
-  it('merges index and text files into items and writes VERSION', () => {
+  it('merges index and text files into items, title first in the text, and writes VERSION', () => {
     const fs = v0({
       [`index/${A}.txt`]: 'title: A\ntags: x, y\n',
       [`text/${A}.txt`]: 'body\n\n\nmore',
       'index/20260101-000001.txt': 'title: No text\n',
     });
     expect(upgradeStore(fs, P)).toEqual({ ok: true });
-    expect(fs.readFile(`/w/.prompts/items/${A}.md`)).toBe('title: A\ntags: x, y\n\n\nbody\n\n\nmore');
-    expect(fs.readFile('/w/.prompts/items/20260101-000001.md')).toBe('title: No text\n\n\n');
-    expect(fs.readFile('/w/.prompts/VERSION')).toBe('1\n');
+    expect(fs.readFile(`/w/.prompts/items/${A}.md`)).toBe('tags: x, y\n\n\nA\n\nbody\n\n\nmore');
+    expect(fs.readFile('/w/.prompts/items/20260101-000001.md')).toBe('tags:\n\n\nNo text\n');
+    expect(fs.readFile('/w/.prompts/VERSION')).toBe('2\n');
     expect(fs.isDir('/w/.prompts/archive')).toBe(true);
     expect(fs.exists('/w/.prompts/index')).toBe(false);
     expect(fs.exists('/w/.prompts/text')).toBe(false);
     expect(fs.readFile('/w/.prompts/README.md')).toBe(README);
     const r = openStore(fs, '/w');
     if (!r.ok) throw new Error('errors' in r ? r.errors.join() : 'not ok');
-    expect(r.store.prompts.get(A)?.text).toBe('body\n\n\nmore');
+    expect(r.store.prompts.get(A)?.text).toBe('A\n\nbody\n\n\nmore');
     expect(r.store.settings).toEqual({ editor: 'vim' });
     expect(r.store.sort).toEqual([A]);
   });
@@ -221,6 +227,52 @@ describe('upgradeStore', () => {
     });
     expect(fs.files).toEqual(before);
   });
+
+  const v1 = (files: Record<string, string> = {}) =>
+    storeFs({ VERSION: '1\n', 'README.md': README_V1, ...files });
+
+  it('version 1: moves each title to the top of its text, archive included', () => {
+    const fs = v1({
+      [`items/${A}.md`]: 'title: Alpha\ntags: x\n\n\nbody\n',
+      'items/20260101-000001.md': 'title: Empty\n\n\n',
+      'archive/20250101-000000.md': 'title: Old\n\n\nold',
+    });
+    expect(upgradeStore(fs, P)).toEqual({ ok: true });
+    expect(fs.readFile(`/w/.prompts/items/${A}.md`)).toBe('tags: x\n\n\nAlpha\n\nbody\n');
+    expect(fs.readFile('/w/.prompts/items/20260101-000001.md')).toBe('tags:\n\n\nEmpty\n');
+    expect(fs.readFile('/w/.prompts/archive/20250101-000000.md')).toBe('tags:\n\n\nOld\n\nold');
+    expect(fs.readFile('/w/.prompts/VERSION')).toBe('2\n');
+    expect(fs.readFile('/w/.prompts/README.md')).toBe(README);
+    const r = openStore(fs, '/w');
+    if (!r.ok) throw new Error('errors' in r ? r.errors.join() : 'not ok');
+    expect(titleOf(r.store.prompts.get(A)!.text)).toBe('Alpha');
+  });
+
+  it('version 1: skips files already converted, so an interrupted upgrade can be rerun', () => {
+    const fs = v1({ [`items/${A}.md`]: 'tags:\n\n\nAlpha\n', 'items/20260101-000001.md': 'title: B\n\n\n' });
+    expect(upgradeStore(fs, P)).toEqual({ ok: true });
+    expect(fs.readFile(`/w/.prompts/items/${A}.md`)).toBe('tags:\n\n\nAlpha\n');
+    expect(fs.readFile('/w/.prompts/items/20260101-000001.md')).toBe('tags:\n\n\nB\n');
+  });
+
+  it('version 1: changes nothing when a file is invalid', () => {
+    const fs = v1({
+      [`items/${A}.md`]: 'title: ok\n\n\nx',
+      'items/20260101-000001.md': 'title: \n\n\nx',
+      'archive/20250101-000000.md': 'title: x\nextra: 1\n',
+      'archive/junk.md': 'title: x\n',
+    });
+    const before = new Map(fs.files);
+    expect(upgradeStore(fs, P)).toEqual({
+      ok: false,
+      errors: [
+        'items/20260101-000001.md: missing title',
+        'archive/20250101-000000.md: unknown key "extra"',
+        'archive/junk.md: invalid id',
+      ],
+    });
+    expect(fs.files).toEqual(before);
+  });
 });
 
 describe('settings', () => {
@@ -242,7 +294,9 @@ describe('settings', () => {
 
 describe('item files', () => {
   it('parse: header, two empty lines, then the text verbatim', () => {
-    expect(parseItem('title: T\ntags: a\n\n\nline\n\n\nend')).toEqual({ header: { title: 'T', tags: 'a' }, text: 'line\n\n\nend' });
+    expect(parseItem('tags: a\n\n\nline\n\n\nend')).toEqual({ header: { tags: 'a' }, text: 'line\n\n\nend' });
+    expect(parseItem('\n\nno header')).toEqual({ header: {}, text: 'no header' });
+    expect(parseItem('')).toEqual({ header: {}, text: '' });
     expect(parseItem('title: T\n\n\n')).toEqual({ header: { title: 'T' }, text: '' });
     expect(parseItem('title: T\n\n')).toEqual({ header: { title: 'T' }, text: '' });
     expect(parseItem('title: T\n')).toEqual({ header: { title: 'T' }, text: '' });
@@ -251,49 +305,57 @@ describe('item files', () => {
     expect(() => parseItem('title: T\n\ntext')).toThrow('expected two empty lines after the header');
   });
 
-  it('serializes title, then tags only when present', () => {
-    expect(serializeItem({ id: A, title: 'T', tags: [], text: '' })).toBe('title: T\n\n\n');
-    expect(serializeItem({ id: A, title: 'T', tags: ['a', 'b c'], text: 'x' })).toBe('title: T\ntags: a, b c\n\n\nx');
+  it('serializes tags, empty when none', () => {
+    expect(serializeItem({ id: A, tags: [], text: 'x' })).toBe('tags:\n\n\nx');
+    expect(serializeItem({ id: A, tags: ['a', 'b c'], text: 'x\n' })).toBe('tags: a, b c\n\n\nx\n');
+  });
+});
+
+describe('titleOf', () => {
+  it('is the first sentence or the first line, whichever ends first', () => {
+    expect(titleOf('Fix the bug. Then test it.')).toBe('Fix the bug.');
+    expect(titleOf('Why? Because.')).toBe('Why?');
+    expect(titleOf('Stop! Now')).toBe('Stop!');
+    expect(titleOf('Line one\nline two. More')).toBe('Line one');
+    expect(titleOf('Ends with a period.\nNext')).toBe('Ends with a period.');
+    expect(titleOf('Windows\r\nline')).toBe('Windows');
+  });
+
+  it('does not end at punctuation without whitespace after it', () => {
+    expect(titleOf('See v1.2 and e.g.x for node.js')).toBe('See v1.2 and e.g.x for node.js');
+    expect(titleOf('Wait...really? yes')).toBe('Wait...really?');
+  });
+
+  it('skips leading blank lines, trims, and turns tabs into spaces', () => {
+    expect(titleOf('\n  \n\t Indented\ttitle  \nbody')).toBe('Indented title');
+    expect(titleOf('')).toBe('');
+    expect(titleOf(' \n\t\n')).toBe('');
   });
 });
 
 describe('prompts', () => {
-  it('creates with id from clock, empty text, and collision suffix', () => {
+  it('creates with id from clock, tags, text, and collision suffix', () => {
     const fs = storeFs();
     const now = new Date(2026, 8, 21, 14, 30, 5);
-    const a = createPrompt(fs, P, '  Hello ', new Set(), now);
-    expect(a).toEqual({ id: '20260921-143005', title: 'Hello', tags: [], text: '' });
-    expect(fs.readFile(P.itemFile(a.id))).toBe('title: Hello\n\n\n');
+    const a = createPrompt(fs, P, 'Hello\n', new Set(), now, ['a', 'b']);
+    expect(a).toEqual({ id: '20260921-143005', tags: ['a', 'b'], text: 'Hello\n' });
+    expect(fs.readFile(P.itemFile(a.id))).toBe('tags: a, b\n\n\nHello\n');
     const b = createPrompt(fs, P, 'B', new Set([a.id]), now);
     expect(b.id).toBe('20260921-143005-2');
-  });
-
-  it('creates with tags and text', () => {
-    const fs = storeFs();
-    const now = new Date(2026, 8, 21, 14, 30, 5);
-    const a = createPrompt(fs, P, 'T', new Set(), now, ['a', 'b'], 'body\n');
-    expect(a.tags).toEqual(['a', 'b']);
-    expect(fs.readFile(P.itemFile(a.id))).toBe('title: T\ntags: a, b\n\n\nbody\n');
-  });
-
-  it('cleans titles: tabs become spaces, then trimmed', () => {
-    expect(cleanTitle('\ta\tb  ')).toBe('a b');
-    const fs = storeFs();
-    const a = createPrompt(fs, P, 'x\ty', new Set());
-    expect(a.title).toBe('x y');
+    expect(fs.readFile(P.itemFile(b.id))).toBe('tags:\n\n\nB');
   });
 
   it('round-trips tags', () => {
     const fs = storeFs();
-    savePrompt(fs, P, { id: A, title: 'T', tags: ['a', 'b c'], text: '' });
+    savePrompt(fs, P, { id: A, tags: ['a', 'b c'], text: 'x' });
     expect(loadPrompts(fs, P, 'items').value.get(A)?.tags).toEqual(['a', 'b c']);
   });
 
   it('updates the copy on disk, keeping what changed there since loading', () => {
-    const fs = storeFs({ [`items/${A}.md`]: 'title: T\n\n\nnewer text' });
-    const loaded = { id: A, title: 'T', tags: [], text: 'old' };
-    expect(updatePrompt(fs, P, loaded, { title: 'U' })).toEqual({ id: A, title: 'U', tags: [], text: 'newer text' });
-    expect(fs.readFile(P.itemFile(A))).toBe('title: U\n\n\nnewer text');
+    const fs = storeFs({ [`items/${A}.md`]: 'tags:\n\n\nnewer text' });
+    const loaded = { id: A, tags: [], text: 'old' };
+    expect(updatePrompt(fs, P, loaded, { tags: ['t'] })).toEqual({ id: A, tags: ['t'], text: 'newer text' });
+    expect(fs.readFile(P.itemFile(A))).toBe('tags: t\n\n\nnewer text');
     fs.writeFile(P.itemFile(A), 'broken');
     expect(updatePrompt(fs, P, loaded, { text: 'x' })).toEqual({ ...loaded, text: 'x' });
     fs.unlink(P.itemFile(A));
@@ -301,17 +363,17 @@ describe('prompts', () => {
   });
 
   it('archives and restores by moving the file', () => {
-    const fs = storeFs({ [`items/${A}.md`]: 'title: T\n\n\nx' });
+    const fs = storeFs({ [`items/${A}.md`]: 'tags:\n\n\nx' });
     archivePrompt(fs, P, A);
     expect(fs.exists(P.itemFile(A))).toBe(false);
-    expect(fs.readFile(P.archiveFile(A))).toBe('title: T\n\n\nx');
+    expect(fs.readFile(P.archiveFile(A))).toBe('tags:\n\n\nx');
     restorePrompt(fs, P, A);
-    expect(fs.readFile(P.itemFile(A))).toBe('title: T\n\n\nx');
+    expect(fs.readFile(P.itemFile(A))).toBe('tags:\n\n\nx');
     expect(fs.exists(P.archiveFile(A))).toBe(false);
   });
 
   it('refuses to restore over an existing item', () => {
-    const fs = storeFs({ [`items/${A}.md`]: 'title: T\n', [`archive/${A}.md`]: 'title: U\n' });
+    const fs = storeFs({ [`items/${A}.md`]: 'tags:\n\n\nT', [`archive/${A}.md`]: 'tags:\n\n\nU' });
     expect(() => restorePrompt(fs, P, A)).toThrow(`items/${A}.md already exists`);
   });
 });

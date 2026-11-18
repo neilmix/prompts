@@ -3,7 +3,8 @@ import { allTags, archivedIds, canonicalTag, completeTag, matchesSearch, searchT
 import { initialState, reduce, type Action } from './state.js';
 import type { Prompt, State } from './types.js';
 
-const p = (id: string, title: string, tags: string[] = [], text = ''): Prompt => ({ id, title, tags, text });
+/** A prompt whose text is `title`, then `body` on the following lines. */
+const p = (id: string, title: string, tags: string[] = [], body = ''): Prompt => ({ id, tags, text: body ? `${title}\n${body}` : title });
 
 function make(prompts: Prompt[], sort: string[] = [], archived: Prompt[] = []): State {
   return initialState({
@@ -75,7 +76,7 @@ describe('search', () => {
     expect(searchTokens('')).toEqual([]);
   });
 
-  it('matches every token against title, text or tags, case-insensitively', () => {
+  it('matches every token against the text or tags, case-insensitively', () => {
     const q = p('20260101-000009', 'Fix the Parser', ['backend'], 'Handle quoted strings.\nThen ship.');
     expect(matchesSearch(q, '')).toBe(true);
     expect(matchesSearch(q, 'PARSER')).toBe(true);

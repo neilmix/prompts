@@ -1,6 +1,7 @@
 import { Box } from 'ink';
 import { useRef, useState } from 'react';
 import { archivedIds } from '../../model/select.js';
+import { titleOf } from '../../store/prompts.js';
 import { ListBody, GUTTER } from '../controls/ListBody.js';
 import { TextInput, TEXT_INPUT_HEIGHT } from '../controls/TextInput.js';
 import type { ViewProps } from '../context.js';
@@ -26,7 +27,7 @@ export function ArchiveModal({ state, dispatch, actions, size }: ViewProps) {
   const bodyHeight = Math.max(0, listHeight - (header === undefined ? 0 : 1));
   const items = ids.map((i) => {
     const p = state.archived.get(i)!;
-    return { text: p.title, tail: chips(p.tags) };
+    return { text: titleOf(p.text), tail: chips(p.tags) };
   });
   const view = listViewport(items, id === undefined ? -1 : sel, bodyHeight, size.columns - GUTTER, topRef.current, BULLET);
   topRef.current = view.top;

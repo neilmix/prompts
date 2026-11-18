@@ -6,9 +6,8 @@ import type { Size } from './hooks/useSize.js';
 
 /** Side-effecting operations the UI can invoke. Each persists, then dispatches. */
 export interface Actions {
-  /** Returns the new id, or null on failure. */
-  create(title: string): string | null;
-  rename(id: string, title: string): void;
+  /** Run the editor on an empty file; create a prompt from the text unless it is blank. */
+  create(suspend: SuspendTerminal): Promise<void>;
   setTags(id: string, tags: string[]): void;
   /** Move the selected prompt `by` steps in the displayed order (negative = up). */
   move(by: number): void;

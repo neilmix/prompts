@@ -14,7 +14,7 @@ Published on npm as `prompts` with a single `bin` entry.
   state.
 - One in-memory model of the whole store, prompt text and archive
   included, is loaded at startup. Writes go through `ops.ts` and update the
-  model. Changing a prompt rereads its file first, so a title change keeps
+  model. Changing a prompt rereads its file first, so a tag change keeps
   text another process wrote since loading, and the reverse.
 
 ## Layout
@@ -28,15 +28,17 @@ src/
                       its options, help text and run function; parseArgs,
                       --help and runCommand are driven by the table
   ops.ts              store operations shared by App and command.ts:
-                      create, retitle, tags, text, move, archive, restore
+                      create, tags, text (never blank), move, archive,
+                      restore
   store/
     format.ts         parse/serialize the `key: value` settings syntax
     ids.ts            ID generation and validation
     open.ts           VERSION, open/load/validate, initStore (Setup)
-    upgrade.ts        version 0 → 1 upgrade
+    upgrade.ts        version 0 or 1 → 2 upgrade
     paths.ts          file locations, plus the version 0 ones for upgrade
     prompts.ts        item file parse/serialize, load, save, update,
-                      archive/restore file moves
+                      archive/restore file moves; titleOf derives a
+                      prompt's title from its text
     sort.ts           sort.txt read/write, display order, move up/down
     settings.ts       settings.txt read/write, editor resolution
     fs.ts             filesystem adapter (real and in-memory for tests)
@@ -51,7 +53,7 @@ src/
                       editor temp file, ^C, quit, minimum size guard, view switch
     ListView.tsx      the main view
     Setup.tsx         y/n question before the app: "Configure now?" when
-                      .prompts is missing, "Upgrade?" when it is version 0
+                      .prompts is missing, "Upgrade?" when it is older
     context.ts        Actions and ViewProps shared by views
     keys.ts           toAction: Ink (input, key) → named action, incl. wheel;
                       vimAction: j/k/g/G mapping
@@ -63,8 +65,7 @@ src/
       CommandPane.tsx separator, message line, underlined-shortcut buttons
       Separator.tsx   `─` rule with optional label, centered text and counter
     modals/
-      NewModal.tsx    title entry, then editor
-      OpenModal.tsx   text pane, Edit/Retitle/Tag/Copy/Archive/Back; with
+      OpenModal.tsx   text pane, Edit/Tag/Copy/Archive/Back; with
                       `archived`, the read-only Archived view
       TagModal.tsx    tag list; `from` says which view Back returns to
       ArchiveModal.tsx archived prompts with their own search, Open/Restore
@@ -87,7 +88,7 @@ Tests sit next to the code as `*.test.ts` / `*.test.tsx`.
 
 `openStore` never creates or changes files. It returns the loaded store, a
 list of validation errors, `missing` when `.prompts` is absent, or
-`outdated` when it has no `VERSION` (version 0). The CLI handles `missing`
+`outdated` when it is an older version (no `VERSION` means 0). The CLI handles `missing`
 and `outdated` by rendering `Setup` with the matching question in the
 normal screen and, on `y`, calling `initStore` or `upgradeStore`, then
 `loadStore`. Errors are reported before the terminal check
@@ -111,7 +112,8 @@ EPIPE, before exiting.
 
 A single reducer in `model/state.ts` owns:
 
-- `prompts` and `archived`: maps of ID to Prompt (title, tags, text), plus
+- `prompts` and `archived`: maps of ID to Prompt (tags, text; the title is
+  derived with `titleOf` wherever it is shown), plus
   `sort` from sort.txt
 - `settings`
 - `selectedId`
@@ -149,14 +151,20 @@ Mouse reporting is turned off around the editor and on exit.
 
 ## Editor
 
-`App.edit` copies the prompt's text into a temp file (`Fs.mkdtemp`), so
-the editor never sees the header, and wraps `runEditor` in Ink's
-`suspendTerminal`, which releases raw mode and the alternate screen, then
-redraws. Changed text is written back with `updatePrompt`, which keeps the
-header as it is on disk; the temp directory is then removed. `runEditor` spawns
-`sh -c '<command> "$@"' sh <file>` with inherited stdio. Renders that
-happen during the suspension are discarded, so `edit` dispatches a no-op
-afterwards to force a redraw.
+`App.editTemp` writes text into a temp file (`Fs.mkdtemp`), so the editor
+never sees the header, and wraps `runEditor` in Ink's `suspendTerminal`,
+which releases raw mode and the alternate screen, then redraws; the temp
+directory is then removed. Edit starts it from the text on disk and writes
+changed, non-blank text back with `ops.writeText`, which keeps the header as
+it is on disk. New starts it from an empty `new.md` and creates a prompt
+with `ops.create` unless the result is blank. `runEditor` spawns
+`sh -c '<command> "$@"' sh <file>` with inherited stdio, using
+`spawnSync`: while the event loop runs, Node keeps reading stdin even with
+no listener attached and would steal input (pastes, split mid escape
+sequence) from the editor. Blocking the loop leaves every byte to the
+editor; `src/editor.test.ts` checks this with a slow reader. Renders that
+happen during the suspension are discarded, so `editTemp` dispatches a
+no-op afterwards to force a redraw.
 
 ## Testing
 

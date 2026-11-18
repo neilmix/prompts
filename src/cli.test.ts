@@ -53,13 +53,13 @@ describe('cli startup', () => {
     const dir = path.join(ROOT, 'bad');
     fs.mkdirSync(path.join(dir, '.prompts', 'items'), { recursive: true });
     fs.mkdirSync(path.join(dir, '.prompts', 'archive'));
-    fs.writeFileSync(path.join(dir, '.prompts', 'VERSION'), '1\n');
+    fs.writeFileSync(path.join(dir, '.prompts', 'VERSION'), '2\n');
     fs.writeFileSync(path.join(dir, '.prompts', 'settings.txt'), 'nope: 1\n');
     fs.writeFileSync(path.join(dir, '.prompts', 'sort.txt'), '');
     fs.writeFileSync(path.join(dir, '.prompts', 'items', '20260101-000000.md'), 'tags: a\n');
     const r = run(dir);
     expect(r.status).toBe(1);
-    expect(r.stderr).toBe('settings.txt: unknown key "nope"\nitems/20260101-000000.md: missing title\n');
+    expect(r.stderr).toBe('settings.txt: unknown key "nope"\nitems/20260101-000000.md: empty text\n');
   });
 
   it('needs a terminal to offer the upgrade of a version 0 store, and changes nothing', () => {
@@ -84,19 +84,19 @@ describe('cli startup', () => {
 
     it('creates, writes, shows, and lists without a terminal', () => {
       const dir = store();
-      const c = cli([dir, '--create', '--title', 'First', '--tags=a,b'], 'hello');
+      const c = cli([dir, '--create', '--tags=a,b'], 'First. hello');
       expect(c.stderr).toBe('');
       expect(c.status).toBe(0);
       const id = c.stdout.trim();
       expect(id).toMatch(/^\d{8}-\d{6}$/);
-      expect(cli([`--show=${id}`, dir]).stdout).toBe('hello');
-      expect(cli([dir, `--write=${id}`], 'bye\n').status).toBe(0);
-      expect(cli([dir, '--show', id]).stdout).toBe('bye\n');
+      expect(cli([`--show=${id}`, dir]).stdout).toBe('First. hello');
+      expect(cli([dir, `--write=${id}`], 'Second. bye\n').status).toBe(0);
+      expect(cli([dir, '--show', id]).stdout).toBe('Second. bye\n');
       expect(cli([dir, '--list', '--search=B hello']).stdout).toBe('');
-      expect(cli([dir, '--list', '--search=B bye']).stdout).toBe(`${id}\tFirst\ta,b\n`);
-      expect(fs.readFileSync(path.join(dir, '.prompts', 'items', `${id}.md`), 'utf8')).toBe('title: First\ntags: a, b\n\n\nbye\n');
+      expect(cli([dir, '--list', '--search=B bye']).stdout).toBe(`${id}\tSecond.\ta,b\n`);
+      expect(fs.readFileSync(path.join(dir, '.prompts', 'items', `${id}.md`), 'utf8')).toBe('tags: a, b\n\n\nSecond. bye\n');
       expect(cli([dir, `--archive=${id}`]).status).toBe(0);
-      expect(cli([dir, '--list-archive']).stdout).toBe(`${id}\tFirst\ta,b\n`);
+      expect(cli([dir, '--list-archive']).stdout).toBe(`${id}\tSecond.\ta,b\n`);
     });
 
     it('upgrades a version 0 store', () => {
@@ -109,13 +109,13 @@ describe('cli startup', () => {
       fs.writeFileSync(path.join(dir, '.prompts', 'text', '20260101-000000.txt'), 'body');
       expect(cli([dir, '--list']).status).toBe(1);
       expect(cli([dir, '--upgrade'])).toMatchObject({ status: 0, stdout: '', stderr: '' });
-      expect(cli([dir, '--show=20260101-000000']).stdout).toBe('body');
+      expect(cli([dir, '--show=20260101-000000']).stdout).toBe('T\n\nbody');
       expect(fs.readdirSync(path.join(dir, '.prompts')).sort()).toEqual(['VERSION', 'archive', 'items', 'settings.txt', 'sort.txt']);
     });
 
     it('exits quietly when the reader closes the pipe early', () => {
       const dir = store();
-      const id = cli([dir, '--create', '--title=Big'], 'x'.repeat(4_000_000)).stdout.trim();
+      const id = cli([dir, '--create'], 'x'.repeat(4_000_000)).stdout.trim();
       const r = spawnSync('sh', ['-c', `node --import tsx src/cli.tsx "$0" --show=${id} | head -c 1 >/dev/null`, dir], {
         encoding: 'utf8',
       });
@@ -136,9 +136,9 @@ describe('cli startup', () => {
 
     it('exits 2 on usage errors and 1 on bad input', () => {
       const dir = store();
-      const u = cli([dir, '--list', '--title=x']);
+      const u = cli([dir, '--list', '--tags=x']);
       expect(u.status).toBe(2);
-      expect(u.stderr).toBe('--title requires --create or --retitle\nRun prompts --help for usage.\n');
+      expect(u.stderr).toBe('--tags requires --create or --tag or --untag\nRun prompts --help for usage.\n');
       const b = cli([dir, '--show=20990101-000000']);
       expect(b.status).toBe(1);
       expect(b.stderr).toBe('no prompt with id "20990101-000000"\n');
@@ -147,7 +147,7 @@ describe('cli startup', () => {
     it('does not set up a missing .prompts', () => {
       const dir = path.join(ROOT, 'empty');
       fs.mkdirSync(dir);
-      const r = cli([dir, '--create', '--title=x'], '');
+      const r = cli([dir, '--create'], 'x');
       expect(r.status).toBe(1);
       expect(fs.existsSync(path.join(dir, '.prompts'))).toBe(false);
     });

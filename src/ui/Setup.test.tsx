@@ -16,7 +16,7 @@ describe('Setup', () => {
 
   it('asks the upgrade question when given it', () => {
     const inst = render(<Setup dir="/d" question={UPGRADE_QUESTION} onAnswer={() => undefined} />);
-    expect(inst.lastFrame()?.replace(/\x1b\[[0-9;]*m/g, '')).toContain('Upgrade .prompts to version 1? (y/n)');
+    expect(inst.lastFrame()?.replace(/\x1b\[[0-9;]*m/g, '')).toContain('Upgrade .prompts to version 2? (y/n)');
     inst.unmount();
   });
 

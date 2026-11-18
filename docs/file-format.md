@@ -17,12 +17,15 @@ endings so that it diffs cleanly under version control.
 
 ## Versions
 
-`VERSION` holds the layout version as a bare number and a newline: `1`.
+`VERSION` holds the layout version as a bare number and a newline: `2`.
 It is the one file besides `README.md` that does not use the settings
-syntax. This document describes version 1.
+syntax. This document describes version 2.
 
-- No `VERSION` file: version 0, the original layout (below). The app offers
-  to upgrade it; the command-line flags refuse it except `--upgrade`.
+- No `VERSION` file: version 0, the original layout (below).
+- Version 1: as version 2, but each item file's header also held a
+  required `title`.
+- The app offers to upgrade versions 0 and 1; the command-line flags
+  refuse them except `--upgrade`.
 - A version newer than the app supports, or a `VERSION` that is not a
   number, is an error.
 
@@ -52,27 +55,27 @@ Used by `settings.txt` and the header of every item file.
 ## `items/<id>.md`
 
 One active prompt: a header in the settings syntax, two empty lines, then
-the text.
+the text. The prompt's title is not stored: it is the first sentence of
+the text (spec.md, "Title").
 
 ```
-title: Refactor the auth middleware
 tags: backend, auth
 
 
-The text, exactly as written. It may contain blank lines.
+Refactor the auth middleware. Keep the session API.
+It may contain blank lines.
 ```
 
 | Header key | Required | Meaning |
 | --- | --- | --- |
-| `title` | yes | Non-empty after trimming. Contains no tabs: they are replaced by spaces on input. |
 | `tags` | no | Comma-separated tags. Each tag is trimmed. Empty entries are dropped. A missing key or empty value means no tags. |
 
 - The header ends at the first empty line. The text starts after the
   second and runs to the end of the file, kept exactly as given; it need
-  not end with a newline. A file that ends before the text starts has
-  empty text.
-- A new prompt with empty text is written as the header followed by two
-  empty lines.
+  not end with a newline. The text must not be blank.
+- The app always writes the `tags` line, as `tags:` when there are none,
+  so the header is never empty. A file that starts with two empty lines
+  has an empty header and is still valid.
 
 New tags contain only letters, digits, `-` and `_` (`[A-Za-z0-9_-]+`).
 The rule is enforced on input, not on load, so older tags with other
@@ -103,9 +106,9 @@ reasons on stderr.
 
 - `settings.txt` must parse. Unknown keys are errors.
 - Every file in `items/` and `archive/` must be named `<id>.md` with a
-  well-formed ID, have a parseable header with a non-empty `title`, and
-  have two empty lines (or the end of the file) after the header. Unknown
-  header keys are errors. A tag containing a comma cannot occur by
+  well-formed ID, have a parseable header, two empty lines after the
+  header, and text that is not blank (`empty text`). Unknown header keys,
+  `title` included, are errors. A tag containing a comma cannot occur by
   construction, so no check is needed.
 - An ID in both `items/` and `archive/` is an error.
 - `sort.txt` lines that are not well-formed IDs are errors. Unknown IDs are
@@ -113,7 +116,26 @@ reasons on stderr.
 - `items/` and `archive/` must exist and be directories. `settings.txt` and
   `sort.txt` must exist; either may be empty.
 
-## Upgrading from version 0
+## Upgrading
+
+Each upgrade moves a prompt's stored title into its text: the text becomes
+the title, a newline, an empty line, then the old text, or just the title
+and a newline when the old text was empty. A title containing `. ` (or `!`,
+`?` before a space) is therefore shortened when derived again.
+
+### From version 1
+
+1. Checks every file in `items/` and `archive/` as version 1 did: a
+   `<id>.md` name, a parseable header, a non-empty `title`, no keys besides
+   `title` and `tags`. A file with no `title` key was already converted by
+   an interrupted upgrade and is skipped. Any problem stops the upgrade
+   with nothing changed.
+2. Rewrites each file in place in the version 2 format.
+3. Replaces `README.md` with the version 2 text if it is the unedited
+   version 0 or 1 text.
+4. Writes `VERSION`. An upgrade interrupted before this step can be rerun.
+
+### From version 0
 
 Version 0 had no `VERSION`, no `archive/`, and kept each prompt in two
 files: `index/<id>.txt` (the header, in the settings syntax) and
@@ -125,9 +147,10 @@ The upgrade:
 1. Checks every `index/` file: a `<id>.txt` name, a parseable header, a
    non-empty `title`, no unknown keys. Any problem stops the upgrade with
    nothing changed.
-2. Writes `items/<id>.md` for each prompt, creates `archive/`, and creates
-   `settings.txt` and `sort.txt` if missing (`sort.txt` is kept as is).
-3. Replaces `README.md` with the version 1 text if it is the unedited
+2. Writes `items/<id>.md` for each prompt in the version 2 format, creates
+   `archive/`, and creates `settings.txt` and `sort.txt` if missing
+   (`sort.txt` is kept as is).
+3. Replaces `README.md` with the version 2 text if it is the unedited
    version 0 text.
 4. Writes `VERSION`. An upgrade interrupted before this step can be rerun.
 5. Deletes the `index/` and `text/` files it converted, then each of the

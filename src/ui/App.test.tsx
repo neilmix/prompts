@@ -9,15 +9,15 @@ const C = '20260101-000003';
 const OLD = '20250101-000001';
 
 const THREE = {
-  [`items/${A}.md`]: 'title: Alpha\ntags: work, Urgent\n\n\n',
-  [`items/${B}.md`]: 'title: Beta\ntags: work\n\n\nline one\nline two\n',
-  [`items/${C}.md`]: 'title: Gamma\n\n\n',
+  [`items/${A}.md`]: 'tags: work, Urgent\n\n\nAlpha\n',
+  [`items/${B}.md`]: 'tags: work\n\n\nBeta\nline one\nline two\n',
+  [`items/${C}.md`]: 'tags:\n\n\nGamma\n',
 };
 
 const WITH_ARCHIVE = {
   ...THREE,
-  [`archive/${OLD}.md`]: 'title: Old idea\ntags: legacy\n\n\nold text\n',
-  'archive/20250101-000002.md': 'title: Older plan\n\n\n',
+  [`archive/${OLD}.md`]: 'tags: legacy\n\n\nOld idea\nold text\n',
+  'archive/20250101-000002.md': 'tags:\n\n\nOlder plan\n',
 };
 
 const item = (id: string) => `/w/.prompts/items/${id}.md`;
@@ -45,7 +45,7 @@ const movingRow = () => {
 const mouse = (button: number, x: number, y: number) => `\x1b[<${button};${x + 1};${y + 1}M`;
 const focusedButton = () => {
   const found = [...h.frame().matchAll(/\x1b\[7m(.*?)\x1b\[27m/g)].map((m) => plain(m[1]!).trim());
-  return found.filter((s) => !s.includes('›') && !/^(New prompt|Settings|Archive\b.*archived$)/.test(s))[0] ?? null;
+  return found.filter((s) => !s.includes('›') && !/^(Settings|Archive\b.*archived$)/.test(s))[0] ?? null;
 };
 
 describe('list view', () => {
@@ -103,7 +103,7 @@ describe('list view', () => {
 
   it('wraps long titles under the gutter and shows a range counter when overflowing', async () => {
     const files: Record<string, string> = {};
-    for (let i = 1; i <= 6; i++) files[`items/20260101-00000${i}.md`] = `title: Item ${i} has a long title that wraps around\n`;
+    for (let i = 1; i <= 6; i++) files[`items/20260101-00000${i}.md`] = `tags:\n\n\nItem ${i} has a long title that wraps around\n`;
     h = await mount(files, { rows: 10 });
     expect(lines().slice(0, 4)).toEqual(['▸ • Item 6 has a long title that wraps', '    around', '  • Item 5 has a long title that wraps', '    around']);
     expect(line(8)).toBe('── press space to reorder ── 1–8 of 12 ─');
@@ -113,7 +113,7 @@ describe('list view', () => {
   });
 
   it('draws tags after the title in cyan, wrapping with the title', async () => {
-    h = await mount({ [`items/${A}.md`]: 'title: A title that is fairly long\ntags: alpha, beta, gamma\n' });
+    h = await mount({ [`items/${A}.md`]: 'tags: alpha, beta, gamma\n\n\nA title that is fairly long\n' });
     expect(lines().slice(0, 2)).toEqual(['▸ • A title that is fairly long [alpha]', '    [beta] [gamma]']);
     expect(h.frame()).toContain('\x1b[36m[alpha]');
     expect(h.frame()).toContain('\x1b[36m[beta] [gamma]');
@@ -142,7 +142,7 @@ describe('list view', () => {
 
   it('move mode: paging, home/end and g/G move the item; Escape leaves', async () => {
     const files: Record<string, string> = {};
-    for (let i = 1; i <= 6; i++) files[`items/20260101-00000${i}.md`] = `title: Item ${i}\n`;
+    for (let i = 1; i <= 6; i++) files[`items/20260101-00000${i}.md`] = `tags:\n\n\nItem ${i}\n`;
     h = await mount(files, { rows: 12 });
     // 8 body rows, 6 items: a page is 8 and clamps at the ends.
     await h.press(KEYS.space, KEYS.end);
@@ -227,104 +227,96 @@ describe('focus', () => {
     await h.press(KEYS.escape, KEYS.right, KEYS.space);
     expect(line(0)).toBe('↕ • Gamma');
     await h.press(KEYS.space, KEYS.enter);
-    expect(line(0)).toBe(' New prompt');
+    expect(h.edits).toHaveLength(1);
+    expect(line(0)).toBe('▸ • edited');
   });
 });
 
 describe('New', () => {
-  it('creates a prompt, puts it first, selects it and opens the editor', async () => {
-    h = await mount(THREE, { env: { EDITOR: 'nano -w' } });
+  it('opens the editor on an empty file, then creates the prompt first in the order and selects it', async () => {
+    h = await mount(THREE, { env: { EDITOR: 'nano -w' }, editorWrites: 'Draft a plan. Then more.\n' });
     await h.press('n');
-    expect(line(0)).toBe(' New prompt');
-    await h.press('N', 'e', 'w', KEYS.space, 'o', 'n', 'e', KEYS.enter);
-    expect(lines().slice(0, 2)).toEqual(['▸ • New one', '  • Gamma']);
-    expect(h.edits).toEqual(['nano -w /tmp/prompts-1/20260921-143005.md']);
-    expect(h.fs.readFile(item('20260921-143005'))).toBe('title: New one\n\n\nedited');
+    expect(h.edits).toEqual(['nano -w /tmp/prompts-1/new.md']);
+    expect(h.opened).toEqual(['']);
+    expect(lines().slice(0, 2)).toEqual(['▸ • Draft a plan.', '  • Gamma']);
+    expect(h.fs.readFile(item('20260921-143005'))).toBe('tags:\n\n\nDraft a plan. Then more.\n');
     expect(h.fs.readFile('/w/.prompts/sort.txt')).toBe(`20260921-143005\n${C}\n${B}\n${A}\n`);
+    expect(h.fs.exists('/tmp/prompts-1')).toBe(false);
   });
 
-  it('ignores empty titles and cancels with escape', async () => {
-    h = await mount();
-    await h.press('n', KEYS.space, KEYS.enter);
-    expect(line(0)).toBe(' New prompt');
-    await h.press(KEYS.escape);
-    expect(line(0)).toMatch(/^no prompts/);
-    expect(h.edits).toEqual([]);
-  });
-
-  it('scrolls a long title to keep the cursor in view, marking hidden text', async () => {
-    h = await mount();
-    const title = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEF';
-    await h.press('n', title);
-    // 40 columns: "Title: " leaves 33 cells. The entry is the last line.
-    expect(line(11)).toBe('Title: …lmnopqrstuvwxyz0123456789ABCDEF');
-    await h.press(KEYS.home);
-    expect(line(11)).toBe('Title: abcdefghijklmnopqrstuvwxyz012345…');
-    await h.press(KEYS.end, ...Array(36).fill(KEYS.left));
-    expect(line(11)).toBe('Title: …ghijklmnopqrstuvwxyz0123456789A…');
-    await h.press(KEYS.enter);
-    expect(line(0)).toBe(`▸ • ${title.slice(0, 36)}`);
-  });
-
-  it('edits text with cursor keys', async () => {
-    h = await mount();
-    await h.press('n', 'a', 'c', KEYS.left, 'b', KEYS.end, 'd', KEYS.home, KEYS.delete, KEYS.end, KEYS.backspace, KEYS.enter);
-    expect(line(0)).toBe('▸ • bc');
+  it('creates nothing when the editor leaves the text blank', async () => {
+    h = await mount(THREE, { editorWrites: ' \n\t\n' });
+    const before = new Map(h.fs.files);
+    await h.press('n');
+    expect(h.edits).toHaveLength(1);
+    expect(lines().slice(0, 1)).toEqual(['▸ • Gamma']);
+    expect(line(ROW.message)).toMatch(/^─/);
+    expect([...h.fs.files.keys()].filter((k) => k.startsWith('/w/'))).toEqual([...before.keys()].filter((k) => k.startsWith('/w/')));
   });
 });
 
 describe('Open', () => {
-  it('shows breadcrumb, id, text, path and tags', async () => {
+  it('shows breadcrumb with the first sentence, id, text, path and tags', async () => {
     h = await mount(THREE);
     await h.press(KEYS.down, 'o');
     expect(line(0)).toBe(` Open › Beta [work]${' '.repeat(5)}${B}`);
-    expect(lines().slice(1, 3)).toEqual(['line one', 'line two']);
+    expect(lines().slice(1, 4)).toEqual(['Beta', 'line one', 'line two']);
     expect(line(9)).toBe(`─ .prompts/items/${B}.md ────`);
-    expect(line(11)).toBe('Edit  Retitle  Tag  Copy  Archive  Back');
+    expect(line(11)).toBe('Edit  Tag  Copy  Archive  Back');
   });
 
   it('scrolls with arrows and vim keys and shows a range counter', async () => {
-    h = await mount({ ...THREE, [`items/${B}.md`]: 'title: Beta\ntags: work\n\n\na\nb\nc\nd\ne\nf\ng\nh\n' }, { rows: 10 });
+    h = await mount({ ...THREE, [`items/${B}.md`]: 'tags: work\n\n\nBeta\na\nb\nc\nd\ne\nf\ng\nh\n' }, { rows: 10 });
     await h.press(KEYS.down, 'o');
+    expect(lines().slice(1, 7)).toEqual(['Beta', 'a', 'b', 'c', 'd', 'e']);
+    expect(line(7)).toBe('─ .prompts/items/20260101-… ─ 1–6 of 9 ─');
+    await h.press('j');
     expect(lines().slice(1, 7)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
-    expect(line(7)).toBe('─ .prompts/items/20260101-… ─ 1–6 of 8 ─');
     await h.press('j');
     expect(lines().slice(1, 7)).toEqual(['b', 'c', 'd', 'e', 'f', 'g']);
-    await h.press('j');
-    expect(lines().slice(1, 7)).toEqual(['c', 'd', 'e', 'f', 'g', 'h']);
     await h.press('g');
-    expect(line(1)).toBe('a');
+    expect(line(1)).toBe('Beta');
     await h.press(KEYS.end);
     expect(line(6)).toBe('h');
   });
 
-  it('shows a hint for empty text and Enter on the body edits', async () => {
-    h = await mount(THREE, { env: { EDITOR: 'vi' } });
-    await h.press('o');
-    expect(line(1)).toBe('empty · e to edit');
-    await h.press(KEYS.enter);
+  it('Enter on the body edits; the title follows the new text', async () => {
+    h = await mount(THREE, { env: { EDITOR: 'vi' }, editorWrites: 'Renamed. Body' });
+    await h.press('o', KEYS.enter);
     expect(h.edits).toEqual([`vi /tmp/prompts-1/${C}.md`]);
-    expect(line(1)).toBe('edited');
-    expect(h.fs.readFile(item(C))).toBe('title: Gamma\n\n\nedited');
+    expect(line(0)).toMatch(/^ Open › Renamed\. /);
+    expect(line(1)).toBe('Renamed. Body');
+    expect(h.fs.readFile(item(C))).toBe('tags:\n\n\nRenamed. Body');
+    await h.press('b');
+    expect(line(0)).toBe('▸ • Renamed.');
   });
 
   it('edits a temp copy of the text only, writes it back, and removes the copy', async () => {
     h = await mount(THREE, { env: { EDITOR: 'vi' }, editorWrites: 'new\n\n\ntext' });
     await h.press(KEYS.down, 'o', 'e');
-    expect(h.opened).toEqual(['line one\nline two\n']);
-    expect(h.fs.readFile(item(B))).toBe('title: Beta\ntags: work\n\n\nnew\n\n\ntext');
+    expect(h.opened).toEqual(['Beta\nline one\nline two\n']);
+    expect(h.fs.readFile(item(B))).toBe('tags: work\n\n\nnew\n\n\ntext');
     expect(h.fs.exists('/tmp/prompts-1')).toBe(false);
   });
 
-  it('keeps a retitle made on disk while the editor ran', async () => {
+  it('edits the text on disk and keeps tags changed there while the editor ran', async () => {
     h = await mount(THREE, { env: { EDITOR: 'vi' } });
-    h.fs.writeFile(item(C), 'title: Renamed elsewhere\n\n\n');
+    h.fs.writeFile(item(C), 'tags: elsewhere\n\n\nNewer text\n');
     await h.press('o', 'e');
-    expect(h.fs.readFile(item(C))).toBe('title: Renamed elsewhere\n\n\nedited');
+    expect(h.opened).toEqual(['Newer text\n']);
+    expect(h.fs.readFile(item(C))).toBe('tags: elsewhere\n\n\nedited');
+  });
+
+  it('keeps the old text and shows an error when the editor leaves it blank', async () => {
+    h = await mount(THREE, { env: { EDITOR: 'vi' }, editorWrites: '\n \n' });
+    await h.press('o', 'e');
+    expect(h.fs.readFile(item(C))).toBe('tags:\n\n\nGamma\n');
+    expect(line(1)).toBe('Gamma');
+    expect(line(ROW.message)).toBe('text is empty; kept the old text');
   });
 
   it('leaves the file alone when the text did not change', async () => {
-    h = await mount(THREE, { env: { EDITOR: 'vi' }, editorWrites: '' });
+    h = await mount(THREE, { env: { EDITOR: 'vi' }, editorWrites: 'Gamma\n' });
     const writes: string[] = [];
     const write = h.fs.writeFile.bind(h.fs);
     h.fs.writeFile = (p, t) => {
@@ -342,21 +334,21 @@ describe('Open', () => {
     expect(h.edits).toEqual([`code --wait /tmp/prompts-1/${C}.md`]);
   });
 
-  it('Copy in the list view copies the text, or the title when the text is blank', async () => {
+  it('Copy in the list view and the Open view copies the text', async () => {
     h = await mount(THREE);
     await h.press('c');
-    expect(h.copies).toEqual(['Gamma']);
+    expect(h.copies).toEqual(['Gamma\n']);
     expect(line(ROW.message)).toBe('Copied');
     await h.press(KEYS.down, 'c');
-    expect(h.copies).toEqual(['Gamma', 'line one\nline two\n']);
+    expect(h.copies).toEqual(['Gamma\n', 'Beta\nline one\nline two\n']);
     await h.press(KEYS.down, 'o', 'c');
-    expect(h.copies).toEqual(['Gamma', 'line one\nline two\n', 'Alpha']);
+    expect(h.copies).toEqual(['Gamma\n', 'Beta\nline one\nline two\n', 'Alpha\n']);
   });
 
   it('copies text and reports status; reports clipboard failure', async () => {
     h = await mount(THREE);
     await h.press(KEYS.down, 'o', 'c');
-    expect(h.copies).toEqual(['line one\nline two\n']);
+    expect(h.copies).toEqual(['Beta\nline one\nline two\n']);
     expect(line(ROW.message)).toBe('Copied');
     await h.press(KEYS.down);
     expect(line(ROW.message)).toMatch(/^─+$/);
@@ -366,30 +358,17 @@ describe('Open', () => {
     expect(line(ROW.message)).toBe('no clipboard');
   });
 
-  it('renames via Retitle and returns with Back, q, or escape', async () => {
+  it('has no Retitle; returns with Back, q, or escape', async () => {
     h = await mount(THREE);
     await h.press('o', 'r');
-    expect(line(ROW.input)).toBe('Title: Gamma');
-    await h.press(KEYS.backspace, KEYS.backspace, 'y', KEYS.enter);
-    expect(line(0)).toMatch(/^ Open › Gamy/);
-    expect(h.fs.readFile(item(C))).toBe('title: Gamy\n\n\n');
-    await h.press('b');
-    expect(line(0)).toBe('▸ • Gamy');
-    await h.press('o', 'q');
-    expect(line(0)).toBe('▸ • Gamy');
-  });
-
-  it('Retitle turns pasted tabs into spaces', async () => {
-    h = await mount(THREE);
-    await h.press('o', 'r', 'a\tb', KEYS.enter);
-    expect(h.fs.readFile(item(C))).toBe('title: Gammaa b\n\n\n');
-  });
-
-  it('title escape cancels without saving', async () => {
-    h = await mount(THREE);
-    await h.press('o', 'r', 'x', KEYS.escape);
     expect(line(0)).toMatch(/^ Open › Gamma/);
-    expect(line(ROW.buttons)).toBe('Edit  Retitle  Tag  Copy  Archive  Back');
+    expect(line(ROW.input)).toMatch(/^─/);
+    await h.press('b');
+    expect(line(0)).toBe('▸ • Gamma');
+    await h.press('o', 'q');
+    expect(line(0)).toBe('▸ • Gamma');
+    await h.press('o', KEYS.escape);
+    expect(line(0)).toBe('▸ • Gamma');
   });
 
   it('Tag opens the Tag view; commit stays there, Back returns to the Open view', async () => {
@@ -401,7 +380,7 @@ describe('Open', () => {
     expect(line(1)).toBe('▸ new');
     await h.press('b');
     expect(line(0)).toMatch(/^ Open › Gamma \[new\]/);
-    expect(h.fs.readFile(item(C))).toBe('title: Gamma\ntags: new\n\n\n');
+    expect(h.fs.readFile(item(C))).toBe('tags: new\n\n\nGamma\n');
     await h.press('t', KEYS.escape);
     expect(line(0)).toMatch(/^ Open › Gamma/);
     await h.press('t', 'b');
@@ -429,7 +408,7 @@ describe('Archive and Quit', () => {
   it('toggles the mark from the Open view', async () => {
     h = await mount(THREE);
     await h.press('o', 'a');
-    expect(line(ROW.buttons)).toBe('Edit  Retitle  Tag  Copy  ✓ Archive  Bac');
+    expect(line(ROW.buttons)).toBe('Edit  Tag  Copy  ✓ Archive  Back');
     await h.press('b');
     expect(line(0)).toBe('▸ • ✓ Gamma');
     expect(line(ROW.buttons)).toContain('✓ Archive');
@@ -450,7 +429,7 @@ describe('Archive and Quit', () => {
     await h.press('a', KEYS.down, 'a', 'o', KEYS.ctrl('c'));
     expect(h.exit()).toEqual({ archived: 2 });
     expect(h.fs.exists(item(C))).toBe(false);
-    expect(h.fs.readFile(`/w/.prompts/archive/${B}.md`)).toBe('title: Beta\ntags: work\n\n\nline one\nline two\n');
+    expect(h.fs.readFile(`/w/.prompts/archive/${B}.md`)).toBe('tags: work\n\n\nBeta\nline one\nline two\n');
     expect(h.fs.exists(`/w/.prompts/archive/${C}.md`)).toBe(true);
     expect(h.fs.exists(item(A))).toBe(true);
     expect(h.fs.readFile('/w/.prompts/sort.txt')).toBe(`${A}\n`);
@@ -480,7 +459,7 @@ describe('Tag', () => {
     expect(line(0)).toBe(` Tags › Gamma           ${C}`);
     expect(line(1)).toBe('▸ Urgent');
     expect(line(ROW.input)).not.toMatch(/^Tag:/);
-    expect(h.fs.readFile(item(C))).toBe('title: Gamma\ntags: Urgent\n\n\n');
+    expect(h.fs.readFile(item(C))).toBe('tags: Urgent\n\n\nGamma\n');
     await h.press('a', 'z', KEYS.enter);
     expect(lines().slice(1, 3)).toEqual(['  Urgent', '▸ z']);
     await h.press(KEYS.escape);
@@ -502,7 +481,7 @@ describe('Tag', () => {
     expect(lines().slice(1, 3)).toEqual(['▸ new', '']);
     await h.press(KEYS.delete);
     expect(line(1)).toBe('no tags · a to add one');
-    expect(h.fs.readFile(item(C))).toBe('title: Gamma\n\n\n');
+    expect(h.fs.readFile(item(C))).toBe('tags:\n\n\nGamma\n');
     await h.press(KEYS.escape);
     expect(line(0)).toBe('▸ • Gamma');
   });
@@ -608,7 +587,7 @@ describe('Archive view', () => {
     h = await mount(WITH_ARCHIVE);
     await h.press('v', KEYS.down, KEYS.enter);
     expect(line(0)).toBe(' Archived › Old idea [legacy]  20250101…');
-    expect(line(1)).toBe('old text');
+    expect(lines().slice(1, 3)).toEqual(['Old idea', 'old text']);
     expect(line(9)).toBe(`─ .prompts/archive/${OLD}.md ──`);
     expect(line(ROW.buttons)).toBe('Restore  Back');
     await h.press('e', KEYS.enter);
@@ -663,8 +642,8 @@ describe('Reload', () => {
   it('rereads the store and keeps selection and archive marks', async () => {
     h = await mount(THREE);
     await h.press(KEYS.down, 'a');
-    h.fs.writeFile(item(A), 'title: Alpha renamed\n');
-    h.fs.writeFile(item('20260101-000009'), 'title: Outside\n');
+    h.fs.writeFile(item(A), 'tags:\n\n\nAlpha renamed\n');
+    h.fs.writeFile(item('20260101-000009'), 'tags:\n\n\nOutside\n');
     await h.press('r');
     expect(lines().slice(0, 4)).toEqual(['  • Outside', '  • Gamma', '▸ • ✓ Beta [work]', '  • Alpha renamed']);
   });

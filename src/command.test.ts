@@ -13,7 +13,7 @@ function storeFs(files: Record<string, string> = {}): MemoryFs {
   return new MemoryFs({
     '/w/.prompts/items': null,
     '/w/.prompts/archive': null,
-    '/w/.prompts/VERSION': '1\n',
+    '/w/.prompts/VERSION': '2\n',
     '/w/.prompts/settings.txt': '',
     '/w/.prompts/sort.txt': '',
     ...Object.fromEntries(Object.entries(files).map(([k, v]) => [`/w/.prompts/${k}`, v])),
@@ -21,10 +21,10 @@ function storeFs(files: Record<string, string> = {}): MemoryFs {
 }
 
 const THREE = {
-  [`items/${A}.md`]: 'title: Alpha\ntags: work, Urgent\n\n\nalpha text\n',
-  [`items/${B}.md`]: 'title: Beta\ntags: work\n\n\n',
-  [`items/${C}.md`]: 'title: Gamma\n\n\nmentions code review here',
-  [`archive/${OLD}.md`]: 'title: Old one\ntags: legacy\n\n\nold text',
+  [`items/${A}.md`]: 'tags: work, Urgent\n\n\nAlpha. alpha text\n',
+  [`items/${B}.md`]: 'tags: work\n\n\nBeta\n',
+  [`items/${C}.md`]: 'tags:\n\n\nGamma\n\nmentions code review here',
+  [`archive/${OLD}.md`]: 'tags: legacy\n\n\nOld one\nold text',
   'sort.txt': `${B}\n${A}\n`,
 };
 
@@ -59,7 +59,8 @@ describe('parseArgs', () => {
     expect(ok(['d', '--list', '--search=a "b c"']).command).toEqual({ name: 'list', arg: '', options: { search: 'a "b c"' } });
     expect(ok(['--show', A]).command).toEqual({ name: 'show', arg: A, options: {} });
     expect(ok([`--write=${A}`, 'd'])).toEqual({ dir: 'd', command: { name: 'write', arg: A, options: {} } });
-    expect(ok(['--create', '--title', 'T', '--tags=x']).command).toEqual({ name: 'create', arg: '', options: { title: 'T', tags: 'x' } });
+    expect(ok(['--create', '--tags', 'x']).command).toEqual({ name: 'create', arg: '', options: { tags: 'x' } });
+    expect(ok(['--create']).command).toEqual({ name: 'create', arg: '', options: {} });
     expect(ok(['--move', A, '--to', '3']).command).toEqual({ name: 'move', arg: A, options: { to: '3' } });
     expect(ok(['--set=editor=vi']).command).toEqual({ name: 'set', arg: 'editor=vi', options: {} });
   });
@@ -69,16 +70,14 @@ describe('parseArgs', () => {
   });
 
   it('names the commands an option belongs to, and missing required options', () => {
-    expect(error(['--title=T'])).toBe('--title requires --create or --retitle');
     expect(error(['--list', '--tags=a'])).toBe('--tags requires --create or --tag or --untag');
-    expect(error(['--create'])).toBe('--create requires --title');
     expect(error([`--move=${A}`])).toBe('--move requires --to');
     expect(error(['--list', '--show', A])).toBe('use only one of --list, --show');
     expect(error(['--filter=a'])).toMatch(/Unknown option '--filter'/);
   });
 
   it('rejects bad combinations', () => {
-    for (const argv of [['--bogus'], ['--search=a'], ['--show', A, '--search=a'], ['--show'], ['a', 'b'], ['--list', 'a', 'b'], ['--tag=x']]) {
+    for (const argv of [['--bogus'], ['--title=T'], ['--create', '--title=T'], ['--retitle=x'], ['--search=a'], ['--show', A, '--search=a'], ['--show'], ['a', 'b'], ['--list', 'a', 'b'], ['--tag=x']]) {
       expect(error(argv), argv.join(' ')).not.toBeNull();
     }
   });
@@ -87,10 +86,12 @@ describe('parseArgs', () => {
 describe('help', () => {
   it('prints usage that covers every flag', async () => {
     expect(await run(storeFs(), ['--help'])).toEqual({ code: 0, stdout: HELP, stderr: '' });
-    for (const flag of ['list', 'search', 'show', 'write', 'create', 'title', 'tags', 'retitle', 'tag', 'untag', 'move', 'to', 'archive', 'restore', 'list-archive', 'settings', 'set', 'init', 'upgrade', 'help']) {
+    for (const flag of ['list', 'search', 'show', 'write', 'create', 'tags', 'tag', 'untag', 'move', 'to', 'archive', 'restore', 'list-archive', 'settings', 'set', 'init', 'upgrade', 'help']) {
       expect(HELP).toContain(`--${flag}`);
     }
-    expect(HELP).toContain('  prompts [dir] --create --title=TITLE [--tags=TAGS]  < content');
+    expect(HELP).toContain('  prompts [dir] --create [--tags=TAGS]  < content');
+    expect(HELP).not.toContain('--title');
+    expect(HELP).not.toContain('--retitle');
   });
 });
 
@@ -121,7 +122,7 @@ describe('store states', () => {
   it('--init creates .prompts once', async () => {
     const fs = new MemoryFs({ '/w': null });
     expect(await run(fs, ['--init'])).toEqual({ code: 0, stdout: '', stderr: '' });
-    expect(file(fs, 'VERSION')).toBe('1\n');
+    expect(file(fs, 'VERSION')).toBe('2\n');
     expect(await run(fs, ['--list'])).toEqual({ code: 0, stdout: '', stderr: '' });
     expect(await run(fs, ['--init'])).toEqual({ code: 1, stdout: '', stderr: '/w/.prompts: already exists\n' });
     expect(await run(new MemoryFs(), ['--init'])).toMatchObject({ code: 1, stderr: '/w: not a directory\n' });
@@ -136,9 +137,18 @@ describe('store states', () => {
       '/w/.prompts/README.md': README_V0,
     });
     expect(await run(fs, ['--upgrade'])).toEqual({ code: 0, stdout: '', stderr: '' });
-    expect(file(fs, `items/${A}.md`)).toBe('title: Old\n\n\nbody');
+    expect(file(fs, `items/${A}.md`)).toBe('tags:\n\n\nOld\n\nbody');
+    expect(file(fs, 'VERSION')).toBe('2\n');
     expect(await run(fs, ['--upgrade'])).toEqual({ code: 0, stdout: '', stderr: '' });
     expect(await run(new MemoryFs({ '/w': null }), ['--upgrade'])).toMatchObject({ code: 1 });
+  });
+
+  it('refuses a version 1 store until --upgrade moves titles into the text', async () => {
+    const fs = storeFs({ VERSION: '1\n', [`items/${A}.md`]: 'title: Alpha\ntags: x\n\n\nbody' });
+    expect(await run(fs, ['--list'])).toMatchObject({ code: 1, stderr: expect.stringContaining('older format') });
+    expect(await run(fs, ['--upgrade'])).toEqual({ code: 0, stdout: '', stderr: '' });
+    expect(file(fs, `items/${A}.md`)).toBe('tags: x\n\n\nAlpha\n\nbody');
+    expect((await run(fs, ['--list'])).stdout).toBe(`${A}\tAlpha\tx\n`);
   });
 
   it('--upgrade reports invalid version 0 files', async () => {
@@ -151,38 +161,37 @@ describe('list and show', () => {
   it('lists in display order as tab-separated lines', async () => {
     expect(await run(storeFs(THREE), ['--list'])).toEqual({
       code: 0,
-      stdout: `${C}\tGamma\t\n${B}\tBeta\twork\n${A}\tAlpha\twork,Urgent\n`,
+      stdout: `${C}\tGamma\t\n${B}\tBeta\twork\n${A}\tAlpha.\twork,Urgent\n`,
       stderr: '',
     });
     expect(await run(storeFs(), ['--list'])).toEqual({ code: 0, stdout: '', stderr: '' });
   });
 
-  it('searches titles, text and tags; terms are ANDed; quotes keep phrases', async () => {
+  it('searches text and tags; terms are ANDed; quotes keep phrases', async () => {
     const list = async (search: string) => (await run(storeFs(THREE), ['--list', `--search=${search}`])).stdout;
-    expect(await list('WORK')).toBe(`${B}\tBeta\twork\n${A}\tAlpha\twork,Urgent\n`);
-    expect(await list('work urg')).toBe(`${A}\tAlpha\twork,Urgent\n`);
+    expect(await list('WORK')).toBe(`${B}\tBeta\twork\n${A}\tAlpha.\twork,Urgent\n`);
+    expect(await list('work urg')).toBe(`${A}\tAlpha.\twork,Urgent\n`);
     expect(await list('"code review"')).toBe(`${C}\tGamma\t\n`);
     expect(await list('"review code"')).toBe('');
     expect(await list('legacy')).toBe('');
   });
 
   it('lists the archive newest first, searchable', async () => {
-    const fs = storeFs({ ...THREE, 'archive/20240101-000000.md': 'title: Older\n' });
+    const fs = storeFs({ ...THREE, 'archive/20240101-000000.md': 'tags:\n\n\nOlder' });
     expect((await run(fs, ['--list-archive'])).stdout).toBe(`${OLD}\tOld one\tlegacy\n20240101-000000\tOlder\t\n`);
     expect((await run(fs, ['--list-archive', '--search=old text'])).stdout).toBe(`${OLD}\tOld one\tlegacy\n`);
   });
 
   it('shows text verbatim, archived too', async () => {
-    expect(await run(storeFs(THREE), ['--show', A])).toEqual({ code: 0, stdout: 'alpha text\n', stderr: '' });
-    expect(await run(storeFs(THREE), ['--show', B])).toEqual({ code: 0, stdout: '', stderr: '' });
-    expect(await run(storeFs(THREE), ['--show', OLD])).toEqual({ code: 0, stdout: 'old text', stderr: '' });
+    expect(await run(storeFs(THREE), ['--show', A])).toEqual({ code: 0, stdout: 'Alpha. alpha text\n', stderr: '' });
+    expect(await run(storeFs(THREE), ['--show', OLD])).toEqual({ code: 0, stdout: 'Old one\nold text', stderr: '' });
   });
 
   it('rejects unknown ids, and archived ones where an active prompt is needed', async () => {
     for (const argv of [['--show=20990101-000000'], ['--write=20990101-000000'], ['--archive=20990101-000000']]) {
       expect(await run(storeFs(THREE), argv)).toEqual({ code: 1, stdout: '', stderr: 'no prompt with id "20990101-000000"\n' });
     }
-    for (const argv of [[`--write=${OLD}`], [`--retitle=${OLD}`, '--title=x'], [`--tag=${OLD}`, '--tags=x'], [`--move=${OLD}`, '--to=1'], [`--archive=${OLD}`]]) {
+    for (const argv of [[`--write=${OLD}`], [`--tag=${OLD}`, '--tags=x'], [`--move=${OLD}`, '--to=1'], [`--archive=${OLD}`]]) {
       expect(await run(storeFs(THREE), argv)).toEqual({ code: 1, stdout: '', stderr: `prompt "${OLD}" is archived; restore it first\n` });
     }
     expect(await run(storeFs(THREE), [`--restore=${A}`])).toEqual({ code: 1, stdout: '', stderr: `no archived prompt with id "${A}"\n` });
@@ -193,24 +202,25 @@ describe('changes', () => {
   it('writes stdin verbatim, keeping the header', async () => {
     const fs = storeFs(THREE);
     expect(await run(fs, [`--write=${B}`], 'new\ttext')).toEqual({ code: 0, stdout: '', stderr: '' });
-    expect(file(fs, `items/${B}.md`)).toBe('title: Beta\ntags: work\n\n\nnew\ttext');
+    expect(file(fs, `items/${B}.md`)).toBe('tags: work\n\n\nnew\ttext');
+    expect((await run(fs, ['--list'])).stdout).toContain(`${B}\tnew text\twork\n`);
   });
 
   it('creates first in sort order and prints the id', async () => {
     const fs = storeFs(THREE);
-    const r = await run(fs, ['--create', '--title= New\tone ', '--tags=WORK,fresh,Fresh'], 'body');
+    const r = await run(fs, ['--create', '--tags=WORK,fresh,Fresh'], '\nNew one. More body');
     const id = '20260921-143005';
     expect(r).toEqual({ code: 0, stdout: `${id}\n`, stderr: '' });
-    expect(file(fs, `items/${id}.md`)).toBe('title: New one\ntags: work, fresh\n\n\nbody');
+    expect(file(fs, `items/${id}.md`)).toBe('tags: work, fresh\n\n\n\nNew one. More body');
+    expect((await run(fs, ['--list'])).stdout.split('\n')[0]).toBe(`${id}\tNew one.\twork,fresh`);
     expect(file(fs, 'sort.txt')).toBe(`${id}\n${C}\n${B}\n${A}\n`);
   });
 
-  it('rejects bad titles and tags without writing', async () => {
+  it('rejects blank text and bad tags without writing', async () => {
     const cases: [string[], string][] = [
-      [['--create', '--title= \t '], '--title: title is empty'],
-      [['--create', '--title=a\nb'], '--title: titles may not contain line breaks'],
-      [['--create', '--title=T', '--tags=ok,no.pe'], '--tags: "no.pe": tags use only letters, numbers, - and _'],
-      [[`--retitle=${A}`, '--title='], '--title: title is empty'],
+      [['--create'], 'stdin: text is empty'],
+      [[`--write=${A}`], 'stdin: text is empty'],
+      [['--create', '--tags=ok,no.pe'], '--tags: "no.pe": tags use only letters, numbers, - and _'],
       [[`--tag=${A}`, '--tags=a b'], '--tags: "a b": tags use only letters, numbers, - and _'],
       [[`--tag=${A}`, '--tags=,'], '--tags: no tags given'],
       [[`--move=${A}`, '--to=0'], '--to: "0": expected a position, 1 or more'],
@@ -221,18 +231,17 @@ describe('changes', () => {
     for (const [argv, err] of cases) {
       const fs = storeFs(THREE);
       const before = new Map(fs.files);
-      expect(await run(fs, argv), argv.join(' ')).toEqual({ code: 1, stdout: '', stderr: `${err}\n` });
+      expect(await run(fs, argv, ' \n\t'), argv.join(' ')).toEqual({ code: 1, stdout: '', stderr: `${err}\n` });
       expect(fs.files).toEqual(before);
     }
   });
 
-  it('retitles, tags and untags', async () => {
+  it('tags and untags', async () => {
     const fs = storeFs(THREE);
-    expect(await run(fs, [`--retitle=${C}`, '--title=Gamma\t2'])).toEqual({ code: 0, stdout: '', stderr: '' });
-    await run(fs, [`--tag=${C}`, '--tags=urgent,new,NEW']);
-    expect(file(fs, `items/${C}.md`)).toBe('title: Gamma 2\ntags: Urgent, new\n\n\nmentions code review here');
+    expect(await run(fs, [`--tag=${C}`, '--tags=urgent,new,NEW'])).toEqual({ code: 0, stdout: '', stderr: '' });
+    expect(file(fs, `items/${C}.md`)).toBe('tags: Urgent, new\n\n\nGamma\n\nmentions code review here');
     await run(fs, [`--untag=${C}`, '--tags=URGENT,absent']);
-    expect(file(fs, `items/${C}.md`)).toBe('title: Gamma 2\ntags: new\n\n\nmentions code review here');
+    expect(file(fs, `items/${C}.md`)).toBe('tags: new\n\n\nGamma\n\nmentions code review here');
   });
 
   it('moves to a position', async () => {
@@ -250,7 +259,7 @@ describe('changes', () => {
     expect(file(fs, 'sort.txt')).toBe(`${C}\n${A}\n`);
     expect(await run(fs, [`--restore=${OLD}`])).toEqual({ code: 0, stdout: '', stderr: '' });
     expect(file(fs, 'sort.txt')).toBe(`${OLD}\n${C}\n${A}\n`);
-    expect(file(fs, `items/${OLD}.md`)).toBe('title: Old one\ntags: legacy\n\n\nold text');
+    expect(file(fs, `items/${OLD}.md`)).toBe('tags: legacy\n\n\nOld one\nold text');
   });
 
   it('prints and changes settings', async () => {
@@ -267,6 +276,6 @@ describe('changes', () => {
     fs.writeFile = () => {
       throw new Error('disk full');
     };
-    expect(await run(fs, [`--retitle=${A}`, '--title=x'])).toEqual({ code: 1, stdout: '', stderr: 'disk full\n' });
+    expect(await run(fs, [`--tag=${A}`, '--tags=x'])).toEqual({ code: 1, stdout: '', stderr: 'disk full\n' });
   });
 });

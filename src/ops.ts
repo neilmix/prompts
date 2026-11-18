@@ -6,7 +6,7 @@
 import { allTags, canonicalTag, fullOrder, tagEq, takenIds } from './model/select.js';
 import type { Fs } from './store/fs.js';
 import type { Paths } from './store/paths.js';
-import { archivePrompt, cleanTitle, createPrompt, restorePrompt, updatePrompt, type Prompt } from './store/prompts.js';
+import { archivePrompt, createPrompt, isBlank, restorePrompt, updatePrompt, type Prompt } from './store/prompts.js';
 import { moveInOrder, saveSort } from './store/sort.js';
 
 export interface Data {
@@ -15,11 +15,11 @@ export interface Data {
   sort: readonly string[];
 }
 
-/** A problem with an entered title, or null. */
-export function titleProblem(title: string): string | null {
-  if (/[\r\n]/.test(title)) return 'titles may not contain line breaks';
-  if (cleanTitle(title) === '') return 'title is empty';
-  return null;
+/** Thrown for blank text: a prompt's title is its text's first sentence. */
+export const EMPTY_TEXT = 'text is empty';
+
+function checkText(text: string): void {
+  if (isBlank(text)) throw new Error(EMPTY_TEXT);
 }
 
 /** `tags` with existing spellings reused and case-insensitive duplicates dropped. */
@@ -33,23 +33,20 @@ export function canonicalTags(data: Data, tags: readonly string[], keep: readonl
   return out;
 }
 
-/** Create a prompt first in the sort order. */
+/** Create a prompt first in the sort order. Throws on blank text. */
 export function create(
   fs: Fs,
   paths: Paths,
   data: Data,
-  fields: { title: string; tags?: readonly string[]; text?: string },
+  fields: { text: string; tags?: readonly string[] },
   now: Date,
 ): { prompt: Prompt; sort: string[] } {
+  checkText(fields.text);
   const tags = canonicalTags(data, fields.tags ?? []);
-  const prompt = createPrompt(fs, paths, fields.title, takenIds(data), now, tags, fields.text ?? '');
+  const prompt = createPrompt(fs, paths, fields.text, takenIds(data), now, tags);
   const sort = [prompt.id, ...fullOrder(data)];
   saveSort(fs, paths, sort);
   return { prompt, sort };
-}
-
-export function retitle(fs: Fs, paths: Paths, data: Data, id: string, title: string): Prompt {
-  return updatePrompt(fs, paths, data.prompts.get(id)!, { title: cleanTitle(title) });
 }
 
 export function setTags(fs: Fs, paths: Paths, data: Data, id: string, tags: readonly string[]): Prompt {
@@ -66,7 +63,9 @@ export function removeTags(fs: Fs, paths: Paths, data: Data, id: string, tags: r
   return updatePrompt(fs, paths, prompt, { tags: prompt.tags.filter((t) => !tags.some((r) => tagEq(r.trim(), t))) });
 }
 
+/** Replace the text. Throws on blank text. */
 export function writeText(fs: Fs, paths: Paths, data: Data, id: string, text: string): Prompt {
+  checkText(text);
   return updatePrompt(fs, paths, data.prompts.get(id)!, { text });
 }
 
